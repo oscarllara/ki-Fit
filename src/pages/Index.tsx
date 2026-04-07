@@ -7,7 +7,7 @@ import ExerciseDialog from '@/components/ExerciseDialog';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, History } from 'lucide-react';
+import { Plus, LayoutGrid } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 interface Exercise {
@@ -63,9 +63,9 @@ const Index = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
 
-  // Carregar do localStorage ao iniciar
+  // Carregar do localStorage ao iniciar (usando a nova chave kifit_workouts)
   useEffect(() => {
-    const saved = localStorage.getItem('nextfit_workouts');
+    const saved = localStorage.getItem('kifit_workouts') || localStorage.getItem('nextfit_workouts');
     if (saved) {
       try {
         setWorkouts(JSON.parse(saved));
@@ -77,7 +77,7 @@ const Index = () => {
 
   // Salvar no localStorage sempre que mudar
   useEffect(() => {
-    localStorage.setItem('nextfit_workouts', JSON.stringify(workouts));
+    localStorage.setItem('kifit_workouts', JSON.stringify(workouts));
   }, [workouts]);
 
   const handleAddExercise = () => {
