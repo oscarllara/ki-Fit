@@ -7,7 +7,7 @@ import ExerciseDialog from '@/components/ExerciseDialog';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid } from 'lucide-react';
+import { Plus, LayoutGrid, Sparkles } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 interface Exercise {
@@ -63,9 +63,8 @@ const Index = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
 
-  // Carregar do localStorage ao iniciar (usando a nova chave kifit_workouts)
   useEffect(() => {
-    const saved = localStorage.getItem('kifit_workouts') || localStorage.getItem('nextfit_workouts');
+    const saved = localStorage.getItem('kifit_workouts');
     if (saved) {
       try {
         setWorkouts(JSON.parse(saved));
@@ -75,7 +74,6 @@ const Index = () => {
     }
   }, []);
 
-  // Salvar no localStorage sempre que mudar
   useEffect(() => {
     localStorage.setItem('kifit_workouts', JSON.stringify(workouts));
   }, [workouts]);
@@ -121,45 +119,52 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <div className="min-h-screen bg-slate-50 pb-24 selection:bg-primary selection:text-white">
       <WorkoutHeader />
       
-      <main className="max-w-4xl mx-auto px-4">
+      <main className="max-w-4xl mx-auto px-6 -mt-12 relative z-20">
         <Tabs defaultValue="A" onValueChange={(v) => setActiveTab(v as WorkoutType)} className="w-full">
-          <div className="sticky top-4 z-10 bg-slate-50/80 backdrop-blur-md py-2 mb-6">
-            <TabsList className="grid w-full grid-cols-3 rounded-2xl p-1.5 bg-slate-200/50 border border-slate-200">
-              <TabsTrigger value="A" className="rounded-xl font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Treino A</TabsTrigger>
-              <TabsTrigger value="B" className="rounded-xl font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Treino B</TabsTrigger>
-              <TabsTrigger value="C" className="rounded-xl font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Treino C</TabsTrigger>
+          <div className="sticky top-6 z-30 bg-slate-50/60 backdrop-blur-xl py-4 mb-8 rounded-[2rem] px-2">
+            <TabsList className="grid w-full grid-cols-3 h-16 rounded-[1.5rem] p-2 bg-white shadow-xl shadow-slate-200/50 border border-slate-100">
+              <TabsTrigger value="A" className="rounded-2xl font-black text-xs uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/30 transition-all duration-300">Treino A</TabsTrigger>
+              <TabsTrigger value="B" className="rounded-2xl font-black text-xs uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/30 transition-all duration-300">Treino B</TabsTrigger>
+              <TabsTrigger value="C" className="rounded-2xl font-black text-xs uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/30 transition-all duration-300">Treino C</TabsTrigger>
             </TabsList>
           </div>
           
           {(['A', 'B', 'C'] as WorkoutType[]).map((type) => (
-            <TabsContent key={type} value={type} className="space-y-6 outline-none">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <LayoutGrid size={20} className="text-primary" />
-                  <h2 className="text-xl font-extrabold text-slate-800">Exercícios do Dia</h2>
+            <TabsContent key={type} value={type} className="space-y-8 outline-none">
+              <div className="flex justify-between items-end px-2">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-primary">
+                    <Sparkles size={18} className="fill-primary/20" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Sua Jornada</span>
+                  </div>
+                  <h2 className="text-3xl font-black text-slate-800 tracking-tighter">Exercícios do Dia</h2>
                 </div>
-                <Button onClick={handleAddExercise} size="sm" className="rounded-full gap-1.5 font-bold shadow-md">
-                  <Plus size={16} /> Add
+                <Button onClick={handleAddExercise} size="lg" className="rounded-full h-14 w-14 p-0 shadow-2xl shadow-primary/40 hover:scale-110 transition-transform">
+                  <Plus size={24} />
                 </Button>
               </div>
               
-              <div className="grid gap-6 sm:grid-cols-2">
-                {workouts[type].map((ex) => (
-                  <ExerciseCard 
-                    key={ex.id}
-                    {...ex}
-                    onEdit={() => handleEditExercise(ex)}
-                    onDelete={() => handleDeleteExercise(ex.id)}
-                  />
+              <div className="grid gap-8 sm:grid-cols-2">
+                {workouts[type].map((ex, index) => (
+                  <div key={ex.id} className="exercise-card-enter" style={{ animationDelay: `${index * 0.1}s` }}>
+                    <ExerciseCard 
+                      {...ex}
+                      onEdit={() => handleEditExercise(ex)}
+                      onDelete={() => handleDeleteExercise(ex.id)}
+                    />
+                  </div>
                 ))}
                 
                 {workouts[type].length === 0 && (
-                  <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                    <p className="text-slate-400 font-medium">Nenhum exercício neste treino.</p>
-                    <Button variant="link" onClick={handleAddExercise} className="mt-2 font-bold">Começar a adicionar</Button>
+                  <div className="col-span-full py-24 text-center bg-white rounded-[3rem] border-4 border-dashed border-slate-100 shadow-inner">
+                    <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <LayoutGrid size={32} className="text-slate-300" />
+                    </div>
+                    <p className="text-slate-400 font-bold text-lg">Nenhum exercício neste treino.</p>
+                    <Button variant="link" onClick={handleAddExercise} className="mt-2 font-black text-primary uppercase tracking-widest text-xs">Começar a adicionar</Button>
                   </div>
                 )}
               </div>
@@ -175,7 +180,7 @@ const Index = () => {
         initialData={editingExercise}
       />
 
-      <footer className="mt-auto">
+      <footer className="mt-12">
         <MadeWithDyad />
       </footer>
     </div>
