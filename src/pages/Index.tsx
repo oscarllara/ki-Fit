@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import WorkoutHeader from '@/components/WorkoutHeader';
 import ExerciseCard from '@/components/ExerciseCard';
 import ExerciseDialog from '@/components/ExerciseDialog';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, Sparkles, User } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
+import { Plus, Sparkles, User, Shield } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
 
 interface Exercise {
   id: string;
@@ -19,94 +20,102 @@ interface Exercise {
   defaultWeight: string;
   level?: number;
   completions?: number;
+  workout_type?: string;
 }
 
 type WorkoutType = 'A' | 'B' | 'C';
 
-const INITIAL_WORKOUTS: Record<WorkoutType, Exercise[]> = {
-  A: [
-    { id: 'a1', title: 'Supino Reto - Barra', videoUrl: 'https://www.youtube.com/watch?v=sqOw2Y6u9as', defaultReps: '4x10', defaultWeight: '60', level: 1, completions: 0 },
-    { id: 'a2', title: 'Supino - Halter - Banco Inclinado', videoUrl: 'https://www.youtube.com/watch?v=8iPvtM_8Wvw', defaultReps: '4x10', defaultWeight: '24', level: 1, completions: 0 },
-    { id: 'a3', title: 'Crucifixo - Peck Deck', videoUrl: 'https://www.youtube.com/watch?v=Z57CtWpXGuQ', defaultReps: '3x12', defaultWeight: '45', level: 1, completions: 0 },
-  ],
-  B: [],
-  C: []
-};
-
 const Index = () => {
   const navigate = useNavigate();
-  const [workouts, setWorkouts] = useState<Record<WorkoutType, Exercise[]>>(INITIAL_WORKOUTS);
+  const [workouts, setWorkouts] = useState<Record<WorkoutType, Exercise[]>>({ A: [], B: [], C: [] });
   const [activeTab, setActiveTab] = useState<WorkoutType>('A');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('kifit_user');
-    if (!savedUser) {
-      navigate('/login');
-    } else {
-      setUser(JSON.parse(savedUser));
-    }
-
-    const saved = localStorage.getItem('kifit_workouts');
-    if (saved) {
-      try {
-        setWorkouts(JSON.parse(saved));
-      } catch (e) {
-        console.error("Erro ao carregar treinos", e);
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/login');
+        return;
       }
-    }
+      
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      setUser({ ...user, ...profile });
+      fetchExercises(user.id);
+    };
+    checkUser();
   }, [navigate]);
 
-  useEffect(() => {
-    localStorage.setItem('kifit_workouts', JSON.stringify(workouts));
-  }, [workouts]);
+  const fetchExercises = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('exercises')
+      .select('*')
+      .eq('user_id', userId);
+    
+    if (error) {
+      showError("Erro ao carregar treinos");
+      return;
+    }
 
-  const handleUpdateStats = (id: string, completions: number, level: number) => {
-    setWorkouts(prev => ({
-      ...prev,
-      [activeTab]: prev[activeTab].map(ex => 
-        ex.id === id ? { ...ex, completions, level } : ex
-      )
-    }));
+    const organized: Record<WorkoutType, Exercise[]> = { A: [], B: [], C: [] };
+    data.forEach((ex: any) => {
+      const type = (ex.workout_type || 'A') as WorkoutType;
+      organized[type].push(ex);
+    });
+    setWorkouts(organized);
   };
 
-  const handleAddExercise = () => {
-    setEditingExercise(null);
-    setIsDialogOpen(true);
-  };
+  const handleUpdateStats = async (id: string, completions: number, level: number) => {
+    const { error } = await supabase
+      .from('exercises')
+      .update({ completions, level })
+      .eq('id', id);
 
-  const handleEditExercise = (exercise: Exercise) => {
-    setEditingExercise(exercise);
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteExercise = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este exercício?')) {
+    if (!error) {
       setWorkouts(prev => ({
         ...prev,
-        [activeTab]: prev[activeTab].filter(ex => ex.id !== id)
+        [activeTab]: prev[activeTab].map(ex => 
+          ex.id === id ? { ...ex, completions, level } : ex
+        )
       }));
-      showSuccess('Exercício removido!');
     }
   };
 
-  const handleSaveExercise = (exercise: Exercise) => {
-    setWorkouts(prev => {
-      const currentWorkout = prev[activeTab];
-      const exists = currentWorkout.find(ex => ex.id === exercise.id);
-      
-      let newWorkout;
-      if (exists) {
-        newWorkout = currentWorkout.map(ex => ex.id === exercise.id ? { ...ex, ...exercise } : ex);
-      } else {
-        newWorkout = [...currentWorkout, { ...exercise, level: 1, completions: 0 }];
-      }
+  const handleSaveExercise = async (exercise: Exercise) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-      return { ...prev, [activeTab]: newWorkout };
-    });
-    showSuccess(editingExercise ? 'Exercício atualizado!' : 'Exercício adicionado!');
+    const exerciseData = {
+      ...exercise,
+      user_id: user.id,
+      workout_type: activeTab,
+      level: exercise.level || 1,
+      completions: exercise.completions || 0
+    };
+
+    const { error } = await supabase.from('exercises').upsert(exerciseData);
+
+    if (error) {
+      showError("Erro ao salvar exercício");
+    } else {
+      fetchExercises(user.id);
+      showSuccess(editingExercise ? 'Atualizado!' : 'Adicionado!');
+    }
+  };
+
+  const handleDeleteExercise = async (id: string) => {
+    if (confirm('Excluir este exercício?')) {
+      const { error } = await supabase.from('exercises').delete().eq('id', id);
+      if (!error) {
+        setWorkouts(prev => ({
+          ...prev,
+          [activeTab]: prev[activeTab].filter(ex => ex.id !== id)
+        }));
+        showSuccess('Removido!');
+      }
+    }
   };
 
   return (
@@ -114,9 +123,14 @@ const Index = () => {
       <WorkoutHeader />
       
       <main className="max-w-4xl mx-auto px-6 -mt-12 relative z-20">
-        <div className="flex justify-end mb-4">
-          <Button variant="ghost" onClick={() => navigate('/login')} className="rounded-full gap-2 text-white/80 hover:text-white hover:bg-white/10">
-            <User size={18} /> {user?.nome || 'Perfil'}
+        <div className="flex justify-end mb-4 gap-2">
+          {user?.email === 'admin@admin.com' && (
+            <Button variant="ghost" onClick={() => navigate('/admin')} className="rounded-full gap-2 text-white/80 hover:text-white hover:bg-white/10">
+              <Shield size={18} /> Gestor
+            </Button>
+          )}
+          <Button variant="ghost" onClick={async () => { await supabase.auth.signOut(); navigate('/login'); }} className="rounded-full gap-2 text-white/80 hover:text-white hover:bg-white/10">
+            <User size={18} /> {user?.nome || 'Sair'}
           </Button>
         </div>
 
@@ -139,7 +153,7 @@ const Index = () => {
                   </div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tighter">Exercícios do Dia</h2>
                 </div>
-                <Button onClick={handleAddExercise} size="lg" className="rounded-full h-14 w-14 p-0 shadow-2xl shadow-primary/40 hover:scale-110 transition-transform">
+                <Button onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} size="lg" className="rounded-full h-14 w-14 p-0 shadow-2xl shadow-primary/40 hover:scale-110 transition-transform">
                   <Plus size={24} />
                 </Button>
               </div>
@@ -149,12 +163,17 @@ const Index = () => {
                   <div key={ex.id} className="exercise-card-enter" style={{ animationDelay: `${index * 0.1}s` }}>
                     <ExerciseCard 
                       {...ex}
-                      onEdit={() => handleEditExercise(ex)}
+                      onEdit={() => { setEditingExercise(ex); setIsDialogOpen(true); }}
                       onDelete={() => handleDeleteExercise(ex.id)}
                       onUpdateStats={handleUpdateStats}
                     />
                   </div>
                 ))}
+                {workouts[type].length === 0 && (
+                  <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
+                    <p className="text-slate-400 font-bold">Nenhum exercício neste treino ainda.</p>
+                  </div>
+                )}
               </div>
             </TabsContent>
           ))}

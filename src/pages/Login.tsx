@@ -2,29 +2,81 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Instagram, Facebook, Linkedin, Chrome, Apple, ArrowRight, Zap } from 'lucide-react';
+import { Instagram, Facebook, Linkedin, Chrome, Apple, ArrowRight, Zap, Lock } from 'lucide-react';
 import SocialInput from '@/components/SocialInput';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 
 const Login = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
     telefone: '',
     email: '',
+    password: '',
     instagram: '',
     facebook: '',
     linkedin: ''
   });
 
-  const handleFinish = () => {
-    localStorage.setItem('kifit_user', JSON.stringify(formData));
-    showSuccess(`Bem-vindo, ${formData.nome}!`);
-    navigate('/');
+  const handleAuth = async () => {
+    setLoading(true);
+    try {
+      // Lógica especial para o Admin solicitado
+      if (formData.email === 'admin@admin.com' && formData.password === 'Senha@123') {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+        
+        if (error) {
+          // Se o usuário não existir, tenta criar
+          const { error: signUpError } = await supabase.auth.signUp({
+            email: formData.email,
+            password: formData.password,
+          });
+          if (signUpError) throw signUpError;
+        }
+        
+        showSuccess("Acesso Gestor concedido!");
+        navigate('/admin');
+        return;
+      }
+
+      // Cadastro normal para usuários
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password || 'user123456', // Senha padrão se não informada
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          nome: formData.nome,
+          telefone: formData.telefone,
+          email: formData.email,
+          redes_sociais: {
+            instagram: formData.instagram,
+            facebook: formData.facebook,
+            linkedin: formData.linkedin
+          }
+        });
+      }
+
+      showSuccess(`Bem-vindo, ${formData.nome}!`);
+      navigate('/');
+    } catch (error: any) {
+      showError(error.message || "Erro ao realizar acesso");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,34 +94,58 @@ const Login = () => {
           {step === 1 ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Nome Completo</Label>
-                <Input 
-                  value={formData.nome}
-                  onChange={(e) => setFormData({...formData, nome: e.target.value})}
-                  className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
-                  placeholder="Como quer ser chamado?"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Telefone / WhatsApp</Label>
-                <Input 
-                  value={formData.telefone}
-                  onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-                  className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-              <div className="space-y-2">
                 <Label className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail de Acesso</Label>
                 <Input 
+                  type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
                   placeholder="seu@email.com"
                 />
               </div>
-              <Button onClick={() => setStep(2)} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest mt-4">
-                Próximo <ArrowRight className="ml-2" size={18} />
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Senha</Label>
+                <div className="relative">
+                  <Input 
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold pl-10"
+                    placeholder="••••••••"
+                  />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                </div>
+              </div>
+              
+              {formData.email !== 'admin@admin.com' && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Nome Completo</Label>
+                    <Input 
+                      value={formData.nome}
+                      onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                      className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
+                      placeholder="Como quer ser chamado?"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Telefone / WhatsApp</Label>
+                    <Input 
+                      value={formData.telefone}
+                      onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                      className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+                </>
+              )}
+
+              <Button 
+                onClick={() => formData.email === 'admin@admin.com' ? handleAuth() : setStep(2)} 
+                disabled={loading}
+                className="w-full h-14 rounded-2xl font-black uppercase tracking-widest mt-4"
+              >
+                {formData.email === 'admin@admin.com' ? 'Entrar como Gestor' : 'Próximo'} <ArrowRight className="ml-2" size={18} />
               </Button>
             </div>
           ) : (
@@ -106,7 +182,9 @@ const Login = () => {
 
               <div className="flex gap-3 pt-4">
                 <Button variant="ghost" onClick={() => setStep(1)} className="flex-1 h-14 rounded-2xl font-bold text-slate-500">Voltar</Button>
-                <Button onClick={handleFinish} className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest">Finalizar</Button>
+                <Button onClick={handleAuth} disabled={loading} className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest">
+                  {loading ? 'Carregando...' : 'Finalizar'}
+                </Button>
               </div>
             </div>
           )}
