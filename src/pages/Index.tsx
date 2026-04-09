@@ -6,10 +6,11 @@ import { supabase } from '@/lib/supabase';
 import WorkoutHeader from '@/components/WorkoutHeader';
 import ExerciseCard from '@/components/ExerciseCard';
 import ExerciseDialog from '@/components/ExerciseDialog';
+import UserNav from '@/components/UserNav';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles, User, Shield } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
 interface Exercise {
@@ -118,22 +119,23 @@ const Index = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
+      <UserNav 
+        user={user} 
+        onLogout={handleLogout} 
+        onAdmin={() => navigate('/admin')}
+        isAdmin={user?.email === 'admin@admin.com'}
+      />
+      
       <WorkoutHeader />
       
       <main className="max-w-4xl mx-auto px-6 -mt-12 relative z-20">
-        <div className="flex justify-end mb-4 gap-2">
-          {user?.email === 'admin@admin.com' && (
-            <Button variant="ghost" onClick={() => navigate('/admin')} className="rounded-full gap-2 text-white/80 hover:text-white hover:bg-white/10">
-              <Shield size={18} /> Gestor
-            </Button>
-          )}
-          <Button variant="ghost" onClick={async () => { await supabase.auth.signOut(); navigate('/login'); }} className="rounded-full gap-2 text-white/80 hover:text-white hover:bg-white/10">
-            <User size={18} /> {user?.nome || 'Sair'}
-          </Button>
-        </div>
-
         <Tabs defaultValue="A" onValueChange={(v) => setActiveTab(v as WorkoutType)} className="w-full">
           <div className="sticky top-6 z-30 bg-slate-50/60 backdrop-blur-xl py-4 mb-8 rounded-[2rem] px-2">
             <TabsList className="grid w-full grid-cols-3 h-16 rounded-[1.5rem] p-2 bg-white shadow-xl shadow-slate-200/50 border border-slate-100">
