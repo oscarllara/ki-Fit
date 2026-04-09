@@ -24,10 +24,30 @@ const Login = () => {
     linkedin: ''
   });
 
+  const capitalizeName = (name: string) => {
+    return name
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const formatPhone = (value: string) => {
+    // Remove tudo que não é dígito
+    const digits = value.replace(/\D/g, '');
+    
+    // Limita a 13 dígitos (55 + DDD + 9 números)
+    const limited = digits.slice(0, 13);
+    
+    if (limited.length <= 2) return limited;
+    if (limited.length <= 4) return `+${limited.slice(0, 2)} (${limited.slice(2)}`;
+    if (limited.length <= 9) return `+${limited.slice(0, 2)} (${limited.slice(2, 4)}) ${limited.slice(4)}`;
+    return `+${limited.slice(0, 2)} (${limited.slice(2, 4)}) ${limited.slice(4, 9)}-${limited.slice(9)}`;
+  };
+
   const handleAuth = async () => {
     setLoading(true);
     try {
-      // Lógica especial para o Admin solicitado
       if (formData.email === 'admin@admin.com' && formData.password === 'Senha@123') {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: formData.email,
@@ -35,7 +55,6 @@ const Login = () => {
         });
         
         if (error) {
-          // Se o usuário não existir, tenta criar
           const { error: signUpError } = await supabase.auth.signUp({
             email: formData.email,
             password: formData.password,
@@ -48,10 +67,9 @@ const Login = () => {
         return;
       }
 
-      // Cadastro normal para usuários
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
-        password: formData.password || 'user123456', // Senha padrão se não informada
+        password: formData.password || 'user123456',
       });
 
       if (error) throw error;
@@ -123,7 +141,7 @@ const Login = () => {
                     <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Nome Completo</Label>
                     <Input 
                       value={formData.nome}
-                      onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                      onChange={(e) => setFormData({...formData, nome: capitalizeName(e.target.value)})}
                       className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
                       placeholder="Como quer ser chamado?"
                     />
@@ -132,9 +150,9 @@ const Login = () => {
                     <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Telefone / WhatsApp</Label>
                     <Input 
                       value={formData.telefone}
-                      onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                      onChange={(e) => setFormData({...formData, telefone: formatPhone(e.target.value)})}
                       className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
-                      placeholder="(00) 00000-0000"
+                      placeholder="+55 (00) 00000-0000"
                     />
                   </div>
                 </>
