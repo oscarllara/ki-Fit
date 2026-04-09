@@ -28,10 +28,22 @@ const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level =
 
   const getYouTubeId = (url: string) => {
     if (!url) return null;
-    // Regex melhorada para capturar diversos formatos de URL do YouTube
+    
+    // Regex ultra robusta para capturar IDs do YouTube em qualquer formato
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
     const match = url.match(regExp);
-    return (match && match[7].length === 11) ? match[7] : null;
+    const id = (match && match[7].length === 11) ? match[7] : null;
+    
+    if (id) return id;
+
+    // Fallback para links de Shorts ou outros formatos
+    const shortsMatch = url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+    if (shortsMatch) return shortsMatch[1];
+
+    // Se o usuário colou apenas o ID
+    if (url.length === 11 && !url.includes('/') && !url.includes('.')) return url;
+
+    return null;
   };
 
   const videoId = getYouTubeId(videoUrl);
@@ -43,10 +55,9 @@ const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level =
     }
 
     setIsCompleted(true);
-    const newCompletions = completions + 1;
-    let newLevel = level;
+    const newCompletions = (completions || 0) + 1;
+    let newLevel = level || 1;
     
-    // Regra para subir de nível: a cada 5 conclusões sobe 1 nível
     if (newCompletions % 5 === 0) {
       newLevel += 1;
       showSuccess(`PARABÉNS! ${title} subiu para o Nível ${newLevel}! 🚀`);
@@ -63,7 +74,7 @@ const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level =
         {videoId ? (
           <iframe
             className="w-full h-full"
-            src={`https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0`}
+            src={`https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0&showinfo=0`}
             title={title}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
