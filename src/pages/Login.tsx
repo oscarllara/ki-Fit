@@ -16,7 +16,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
-    telefone: '',
+    telefone: '+55 ',
     email: '',
     password: '',
     instagram: '',
@@ -33,9 +33,15 @@ const Login = () => {
   };
 
   const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
+    // Garante que sempre comece com +55
+    let digits = value.replace(/\D/g, '');
+    
+    // Se o usuário apagar tudo, mantém o 55
+    if (digits.length < 2) digits = '55';
+    
     const limited = digits.slice(0, 13);
-    if (limited.length <= 2) return limited;
+    
+    if (limited.length <= 2) return `+${limited}`;
     if (limited.length <= 4) return `+${limited.slice(0, 2)} (${limited.slice(2)}`;
     if (limited.length <= 9) return `+${limited.slice(0, 2)} (${limited.slice(2, 4)}) ${limited.slice(4)}`;
     return `+${limited.slice(0, 2)} (${limited.slice(2, 4)}) ${limited.slice(4, 9)}-${limited.slice(9)}`;
@@ -47,7 +53,7 @@ const Login = () => {
       return false;
     }
     if (formData.email !== 'admin@admin.com') {
-      if (!formData.nome || !formData.telefone) {
+      if (!formData.nome || !formData.telefone || formData.telefone === '+55 ') {
         showError("Nome e Telefone são obrigatórios");
         return false;
       }
@@ -62,7 +68,6 @@ const Login = () => {
   const handleAuth = async () => {
     if (!validateStep1()) return;
 
-    // Verifica se o Supabase está configurado
     if (import.meta.env.VITE_SUPABASE_URL?.includes('placeholder')) {
       showError("Erro: Supabase não configurado. Clique em 'Add Supabase' acima.");
       return;
@@ -77,7 +82,6 @@ const Login = () => {
         });
         
         if (error) {
-          // Tenta criar o admin se não existir (apenas para desenvolvimento inicial)
           const { error: signUpError } = await supabase.auth.signUp({
             email: formData.email,
             password: formData.password,
@@ -178,6 +182,14 @@ const Login = () => {
                     <Input 
                       value={formData.telefone}
                       onChange={(e) => setFormData({...formData, telefone: formatPhone(e.target.value)})}
+                      onFocus={(e) => {
+                        if (e.target.value === '+55 ') {
+                          // Posiciona o cursor no final
+                          const val = e.target.value;
+                          e.target.value = '';
+                          e.target.value = val;
+                        }
+                      }}
                       className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
                       placeholder="+55 (00) 00000-0000"
                     />
