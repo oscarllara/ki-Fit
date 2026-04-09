@@ -33,28 +33,51 @@ const Login = () => {
   };
 
   const formatPhone = (value: string) => {
-    // Remove tudo que não é dígito
     const digits = value.replace(/\D/g, '');
-    
-    // Limita a 13 dígitos (55 + DDD + 9 números)
     const limited = digits.slice(0, 13);
-    
     if (limited.length <= 2) return limited;
     if (limited.length <= 4) return `+${limited.slice(0, 2)} (${limited.slice(2)}`;
     if (limited.length <= 9) return `+${limited.slice(0, 2)} (${limited.slice(2, 4)}) ${limited.slice(4)}`;
     return `+${limited.slice(0, 2)} (${limited.slice(2, 4)}) ${limited.slice(4, 9)}-${limited.slice(9)}`;
   };
 
+  const validateStep1 = () => {
+    if (!formData.email || !formData.password) {
+      showError("E-mail e senha são obrigatórios");
+      return false;
+    }
+    if (formData.email !== 'admin@admin.com') {
+      if (!formData.nome || !formData.telefone) {
+        showError("Nome e Telefone são obrigatórios");
+        return false;
+      }
+      if (formData.telefone.length < 14) {
+        showError("Telefone incompleto");
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleAuth = async () => {
+    if (!validateStep1()) return;
+
+    // Verifica se o Supabase está configurado
+    if (import.meta.env.VITE_SUPABASE_URL?.includes('placeholder')) {
+      showError("Erro: Supabase não configurado. Clique em 'Add Supabase' acima.");
+      return;
+    }
+
     setLoading(true);
     try {
       if (formData.email === 'admin@admin.com' && formData.password === 'Senha@123') {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
         });
         
         if (error) {
+          // Tenta criar o admin se não existir (apenas para desenvolvimento inicial)
           const { error: signUpError } = await supabase.auth.signUp({
             email: formData.email,
             password: formData.password,
@@ -69,7 +92,7 @@ const Login = () => {
 
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
-        password: formData.password || 'user123456',
+        password: formData.password,
       });
 
       if (error) throw error;
@@ -81,9 +104,9 @@ const Login = () => {
           telefone: formData.telefone,
           email: formData.email,
           redes_sociais: {
-            instagram: formData.instagram,
-            facebook: formData.facebook,
-            linkedin: formData.linkedin
+            instagram: formData.instagram || '',
+            facebook: formData.facebook || '',
+            linkedin: formData.linkedin || ''
           }
         });
       }
@@ -91,7 +114,11 @@ const Login = () => {
       showSuccess(`Bem-vindo, ${formData.nome}!`);
       navigate('/');
     } catch (error: any) {
-      showError(error.message || "Erro ao realizar acesso");
+      if (error.message === 'Failed to fetch') {
+        showError("Erro de conexão. Verifique se o Supabase foi configurado corretamente.");
+      } else {
+        showError(error.message || "Erro ao realizar acesso");
+      }
     } finally {
       setLoading(false);
     }
@@ -112,7 +139,7 @@ const Login = () => {
           {step === 1 ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail de Acesso</Label>
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail de Acesso *</Label>
                 <Input 
                   type="email"
                   value={formData.email}
@@ -122,7 +149,7 @@ const Login = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Senha</Label>
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Senha *</Label>
                 <div className="relative">
                   <Input 
                     type="password"
@@ -138,7 +165,7 @@ const Login = () => {
               {formData.email !== 'admin@admin.com' && (
                 <>
                   <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Nome Completo</Label>
+                    <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Nome Completo *</Label>
                     <Input 
                       value={formData.nome}
                       onChange={(e) => setFormData({...formData, nome: capitalizeName(e.target.value)})}
@@ -147,7 +174,7 @@ const Login = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Telefone / WhatsApp</Label>
+                    <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Telefone / WhatsApp *</Label>
                     <Input 
                       value={formData.telefone}
                       onChange={(e) => setFormData({...formData, telefone: formatPhone(e.target.value)})}
@@ -159,7 +186,11 @@ const Login = () => {
               )}
 
               <Button 
-                onClick={() => formData.email === 'admin@admin.com' ? handleAuth() : setStep(2)} 
+                onClick={() => {
+                  if (validateStep1()) {
+                    formData.email === 'admin@admin.com' ? handleAuth() : setStep(2);
+                  }
+                }} 
                 disabled={loading}
                 className="w-full h-14 rounded-2xl font-black uppercase tracking-widest mt-4"
               >
@@ -168,6 +199,9 @@ const Login = () => {
             </div>
           ) : (
             <div className="space-y-4">
+              <div className="text-center mb-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary">Opcional</p>
+              </div>
               <SocialInput 
                 label="Instagram" 
                 prefix="instagram.com/" 
