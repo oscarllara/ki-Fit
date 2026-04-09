@@ -33,14 +33,9 @@ const Login = () => {
   };
 
   const formatPhone = (value: string) => {
-    // Garante que sempre comece com +55
     let digits = value.replace(/\D/g, '');
-    
-    // Se o usuário apagar tudo, mantém o 55
     if (digits.length < 2) digits = '55';
-    
     const limited = digits.slice(0, 13);
-    
     if (limited.length <= 2) return `+${limited}`;
     if (limited.length <= 4) return `+${limited.slice(0, 2)} (${limited.slice(2)}`;
     if (limited.length <= 9) return `+${limited.slice(0, 2)} (${limited.slice(2, 4)}) ${limited.slice(4)}`;
@@ -68,8 +63,12 @@ const Login = () => {
   const handleAuth = async () => {
     if (!validateStep1()) return;
 
-    if (import.meta.env.VITE_SUPABASE_URL?.includes('placeholder')) {
-      showError("Erro: Supabase não configurado. Clique em 'Add Supabase' acima.");
+    // Verificação robusta se o Supabase foi configurado
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const isNotConfigured = !supabaseUrl || supabaseUrl.includes('placeholder');
+
+    if (isNotConfigured) {
+      showError("Ação necessária: Clique no botão 'Add Supabase' acima para ativar o sistema.");
       return;
     }
 
@@ -184,7 +183,6 @@ const Login = () => {
                       onChange={(e) => setFormData({...formData, telefone: formatPhone(e.target.value)})}
                       onFocus={(e) => {
                         if (e.target.value === '+55 ') {
-                          // Posiciona o cursor no final
                           const val = e.target.value;
                           e.target.value = '';
                           e.target.value = val;
