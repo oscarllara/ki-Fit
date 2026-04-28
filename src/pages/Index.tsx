@@ -36,15 +36,15 @@ const Index = () => {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
         navigate('/login');
         return;
       }
       
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      setUser({ ...user, ...profile });
-      fetchExercises(user.id);
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
+      setUser({ ...authUser, ...profile });
+      fetchExercises(authUser.id);
     };
     checkUser();
   }, [navigate]);
@@ -63,7 +63,10 @@ const Index = () => {
     const organized: Record<WorkoutType, Exercise[]> = { A: [], B: [], C: [] };
     data.forEach((ex: any) => {
       const type = (ex.workout_type || 'A') as WorkoutType;
-      organized[type].push(ex);
+      organized[type].push({
+        ...ex,
+        title: ex.title || ex.name || 'Sem título'
+      });
     });
     setWorkouts(organized);
   };
@@ -85,15 +88,16 @@ const Index = () => {
   };
 
   const handleSaveExercise = async (exercise: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return;
 
     const exerciseData = {
       title: exercise.title,
+      name: exercise.title, // Mantendo compatibilidade com a coluna original
       video_url: exercise.videoUrl,
       default_reps: exercise.defaultReps,
       default_weight: exercise.defaultWeight,
-      user_id: user.id,
+      user_id: authUser.id,
       workout_type: activeTab,
       level: exercise.level || 1,
       completions: exercise.completions || 0
@@ -116,7 +120,7 @@ const Index = () => {
     if (error) {
       showError("Erro ao salvar exercício");
     } else {
-      fetchExercises(user.id);
+      fetchExercises(authUser.id);
       showSuccess(editingExercise ? 'Atualizado!' : 'Adicionado!');
     }
   };
