@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Instagram, Facebook, Linkedin, ArrowRight, Zap, Lock, Mail } from 'lucide-react';
+import { Instagram, Facebook, Linkedin, ArrowRight, Zap, Lock, User } from 'lucide-react';
 import SocialInput from '@/components/SocialInput';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -61,30 +61,19 @@ const Login = () => {
 
     setLoading(true);
     try {
-      // Tentar Login Primeiro
+      // 1. Tentar Login
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
-      if (!signInError) {
+      if (!signInError && signInData.user) {
         showSuccess("Bem-vindo de volta!");
-        if (formData.email === 'admin@admin.com') {
-          navigate('/admin');
-        } else {
-          navigate('/');
-        }
+        navigate(formData.email === 'admin@admin.com' ? '/admin' : '/');
         return;
       }
 
-      // Se o erro for e-mail não confirmado
-      if (signInError.message.includes("Email not confirmed")) {
-        showError("Por favor, confirme seu e-mail antes de entrar. Verifique sua caixa de entrada!");
-        setLoading(false);
-        return;
-      }
-
-      // Se não for erro de e-mail não confirmado e não for admin, tentar cadastro
+      // 2. Se o login falhar (usuário não existe), tentar Cadastro (exceto para admin)
       if (formData.email !== 'admin@admin.com') {
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: formData.email,
@@ -100,6 +89,7 @@ const Login = () => {
         if (signUpError) throw signUpError;
 
         if (signUpData.user) {
+          // Criar perfil imediatamente
           await supabase.from('profiles').upsert({
             id: signUpData.user.id,
             full_name: formData.nome,
@@ -110,18 +100,12 @@ const Login = () => {
             linkedin: formData.linkedin || ''
           });
           
-          showSuccess("Cadastro realizado! Verifique seu e-mail para ativar sua conta.");
-          setStep(1);
+          showSuccess("Conta criada com sucesso! Acessando...");
+          navigate('/');
         }
       } else {
-        // Se for admin e deu erro de login, tentar criar o admin
-        const { error: adminSignUpError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-        });
-        
-        if (adminSignUpError) throw adminSignUpError;
-        showSuccess("Usuário Gestor criado! Verifique o e-mail admin@admin.com para ativar.");
+        // Se for admin e deu erro, as credenciais estão erradas
+        throw new Error("Credenciais de gestor inválidas.");
       }
 
     } catch (error: any) {
@@ -139,7 +123,7 @@ const Login = () => {
             <Zap className="text-white fill-white" size={32} />
           </div>
           <h1 className="text-3xl font-black tracking-tighter text-slate-900">Ki-Fit</h1>
-          <p className="text-slate-500 font-medium">Sua jornada fitness começa aqui.</p>
+          <p className="text-slate-500 font-medium">Sua jornada fitness começa agora.</p>
         </div>
 
         <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 space-y-6">
@@ -203,10 +187,6 @@ const Login = () => {
               >
                 {formData.email === 'admin@admin.com' ? 'Entrar como Gestor' : 'Próximo'} <ArrowRight className="ml-2" size={18} />
               </Button>
-              
-              <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest flex items-center justify-center gap-2">
-                <Mail size={12} /> Verifique seu e-mail após o cadastro
-              </p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -241,6 +221,10 @@ const Login = () => {
             </div>
           )}
         </div>
+        
+        <p className="text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
+          Acesso imediato e seguro
+        </p>
       </div>
     </div>
   );
