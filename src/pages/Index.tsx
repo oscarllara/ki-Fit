@@ -10,7 +10,7 @@ import UserNav from '@/components/UserNav';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles } from 'lucide-react';
+import { Plus, Sparkles, RefreshCw } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
 interface Exercise {
@@ -19,9 +19,9 @@ interface Exercise {
   video_url: string;
   default_reps: string;
   default_weight: string;
-  level?: number;
-  completions?: number;
-  workout_type?: string;
+  level: number;
+  completions: number;
+  workout_type: string;
 }
 
 type WorkoutType = 'A' | 'B' | 'C';
@@ -33,6 +33,43 @@ const Index = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchExercises = async (userId: string) => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('exercises')
+      .select('*')
+      .eq('user_id', userId);
+    
+    if (error) {
+      showError("Erro ao carregar treinos");
+      setLoading(false);
+      return;
+    }
+
+    const organized: Record<WorkoutType, Exercise[]> = { A: [], B: [], C: [] };
+    
+    if (data) {
+      data.forEach((ex: any) => {
+        const type = (ex.workout_type || 'A') as WorkoutType;
+        // Garantindo que pegamos o nome correto independente da coluna (name ou title)
+        organized[type].push({
+          id: ex.id,
+          title: ex.title || ex.name || 'Exercício sem nome',
+          video_url: ex.video_url || '',
+          default_reps: ex.default_reps || '3x12',
+          default_weight: ex.default_weight || '0',
+          level: ex.level || 1,
+          completions: ex.completions || 0,
+          workout_type: type
+        });
+      });
+    }
+    
+    setWorkouts(organized);
+    setLoading(false);
+  };
 
   useEffect(() => {
     const checkUser = async () => {
@@ -48,28 +85,6 @@ const Index = () => {
     };
     checkUser();
   }, [navigate]);
-
-  const fetchExercises = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('exercises')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (error) {
-      showError("Erro ao carregar treinos");
-      return;
-    }
-
-    const organized: Record<WorkoutType, Exercise[]> = { A: [], B: [], C: [] };
-    data.forEach((ex: any) => {
-      const type = (ex.workout_type || 'A') as WorkoutType;
-      organized[type].push({
-        ...ex,
-        title: ex.title || ex.name || 'Sem título'
-      });
-    });
-    setWorkouts(organized);
-  };
 
   const handleUpdateStats = async (id: string, completions: number, level: number) => {
     const { error } = await supabase
@@ -88,16 +103,15 @@ const Index = () => {
   };
 
   const handleSaveExercise = async (exercise: any) => {
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (!authUser) return;
+    if (!user) return;
 
     const exerciseData = {
       title: exercise.title,
-      name: exercise.title, // Mantendo compatibilidade com a coluna original
+      name: exercise.title, // Mantendo compatibilidade
       video_url: exercise.videoUrl,
       default_reps: exercise.defaultReps,
       default_weight: exercise.defaultWeight,
-      user_id: authUser.id,
+      user_id: user.id,
       workout_type: activeTab,
       level: exercise.level || 1,
       completions: exercise.completions || 0
@@ -120,7 +134,7 @@ const Index = () => {
     if (error) {
       showError("Erro ao salvar exercício");
     } else {
-      fetchExercises(authUser.id);
+      fetchExercises(user.id);
       showSuccess(editingExercise ? 'Atualizado!' : 'Adicionado!');
     }
   };
@@ -174,9 +188,19 @@ const Index = () => {
                   </div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tighter">Exercícios do Dia</h2>
                 </div>
-                <Button onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} size="lg" className="rounded-full h-14 w-14 p-0 shadow-2xl shadow-primary/40 hover:scale-110 transition-transform">
-                  <Plus size={24} />
-                </Button>
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => user && fetchExercises(user.id)}
+                    className="rounded-full h-14 w-14 border-none bg-white shadow-xl hover:bg-slate-50"
+                  >
+                    <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+                  </Button>
+                  <Button onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} size="lg" className="rounded-full h-14 w-14 p-0 shadow-2xl shadow-primary/40 hover:scale-110 transition-transform">
+                    <Plus size={24} />
+                  </Button>
+                </div>
               </div>
               
               <div className="grid gap-8 sm:grid-cols-2">
@@ -199,9 +223,15 @@ const Index = () => {
                     />
                   </div>
                 ))}
-                {workouts[type].length === 0 && (
+                {!loading && workouts[type].length === 0 && (
                   <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
                     <p className="text-slate-400 font-bold">Nenhum exercício neste treino ainda.</p>
+                    <p className="text-[10px] uppercase tracking-widest mt-2 text-slate-300">Toque no + para adicionar</p>
+                  </div>
+                )}
+                {loading && (
+                  <div className="col-span-full py-20 text-center">
+                    <RefreshCw size={32} className="animate-spin mx-auto text-primary/20" />
                   </div>
                 )}
               </div>
