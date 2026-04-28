@@ -8,11 +8,13 @@ import ExerciseCard from '@/components/ExerciseCard';
 import ExerciseDialog from '@/components/ExerciseDialog';
 import ProfileDialog from '@/components/ProfileDialog';
 import UserNav from '@/components/UserNav';
+import RestTimer from '@/components/RestTimer';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Plus, Sparkles, RefreshCw } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
+import confetti from 'canvas-confetti';
 
 interface Exercise {
   id: string;
@@ -33,6 +35,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<WorkoutType>('A');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showTimer, setShowTimer] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -91,14 +94,8 @@ const Index = () => {
   }, [navigate]);
 
   const handleSaveExercise = async (exercise: any) => {
-    // Pegamos o ID diretamente da sessão atual para garantir que é válido
     const { data: { user: currentUser } } = await supabase.auth.getUser();
-    
-    if (!currentUser) {
-      showError("Sessão expirada. Por favor, faça login novamente.");
-      navigate('/login');
-      return;
-    }
+    if (!currentUser) return;
     
     const exerciseData: any = {
       title: exercise.title,
@@ -106,7 +103,7 @@ const Index = () => {
       video_url: exercise.videoUrl,
       default_reps: exercise.defaultReps,
       default_weight: exercise.defaultWeight,
-      user_id: currentUser.id, // Usando o ID garantido da sessão
+      user_id: currentUser.id,
       workout_type: activeTab
     };
 
@@ -116,24 +113,35 @@ const Index = () => {
         : await supabase.from('exercises').insert([exerciseData]);
 
       if (error) throw error;
-
       await fetchExercises(currentUser.id);
       showSuccess(editingExercise ? 'Atualizado!' : 'Adicionado!');
       setIsDialogOpen(false);
     } catch (err: any) {
-      showError("Erro ao salvar: " + (err.message || "Erro de permissão"));
-      console.error("Erro detalhado:", err);
+      showError("Erro ao salvar: " + err.message);
     }
   };
 
-  const handleUpdateProfile = async (data: any) => {
+  const handleUpdateStats = async (id: string, completions: number, level: number) => {
     try {
-      const { error } = await supabase.from('profiles').upsert({ id: user.id, ...data });
+      const oldExercise = [...workouts.A, ...workouts.B, ...workouts.C].find(e => e.id === id);
+      const leveledUp = level > (oldExercise?.level || 1);
+
+      const { error } = await supabase.from('exercises').update({ completions, level }).eq('id', id);
       if (error) throw error;
-      setUser(prev => ({ ...prev, ...data }));
-      showSuccess("Perfil atualizado!");
+
+      if (leveledUp) {
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#6366F1', '#F59E0B', '#10B981']
+        });
+      }
+
+      setShowTimer(true);
+      fetchExercises(user.id);
     } catch (err: any) {
-      showError("Erro no perfil: " + err.message);
+      showError("Erro ao atualizar: " + err.message);
     }
   };
 
@@ -197,13 +205,9 @@ const Index = () => {
                         if (confirm('Excluir?')) {
                           const { error } = await supabase.from('exercises').delete().eq('id', ex.id);
                           if (!error) fetchExercises(user.id);
-                          else showError("Erro ao excluir: " + error.message);
                         }
                       }}
-                      onUpdateStats={async (id, completions, level) => {
-                        const { error } = await supabase.from('exercises').update({ completions, level }).eq('id', id);
-                        if (!error) fetchExercises(user.id);
-                      }}
+                      onUpdateStats={handleUpdateStats}
                     />
                   </div>
                 ))}
@@ -218,6 +222,8 @@ const Index = () => {
           ))}
         </Tabs>
       </main>
+
+      {showTimer && <RestTimer onClose={() => setShowTimer(false)} />}
 
       <ExerciseDialog 
         isOpen={isDialogOpen} 
@@ -235,7 +241,13 @@ const Index = () => {
       <ProfileDialog 
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
-        onSave={handleUpdateProfile}
+        onSave={async (data) => {
+          const { error } = await supabase.from('profiles').upsert({ id: user.id, ...data });
+          if (!error) {
+            setUser(prev => ({ ...prev, ...data }));
+            showSuccess("Perfil atualizado!");
+          }
+        }}
         initialData={user}
       />
       <footer className="mt-12"><MadeWithDyad /></footer>
