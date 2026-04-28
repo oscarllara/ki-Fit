@@ -47,17 +47,16 @@ const Admin = () => {
       supabase.from('exercises').select('*')
     ]);
     
-    if (!usersRes.error) setUsers(usersRes.data);
-    if (!exercisesRes.error) setExercises(exercisesRes.data);
+    if (!usersRes.error) setUsers(usersRes.data || []);
+    if (!exercisesRes.error) setExercises(exercisesRes.data || []);
     setLoading(false);
   };
 
   const filteredUsers = users.filter(u => 
-    u.nome?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Estatísticas para o Relatório
   const totalCompletions = exercises.reduce((acc, curr) => acc + (curr.completions || 0), 0);
   const avgLevel = exercises.length > 0 
     ? (exercises.reduce((acc, curr) => acc + (curr.level || 1), 0) / exercises.length).toFixed(1)
@@ -145,18 +144,18 @@ const Admin = () => {
                   <div key={user.id} className="group flex flex-col md:flex-row items-center justify-between p-6 bg-slate-50 hover:bg-white hover:shadow-lg hover:shadow-primary/5 rounded-3xl transition-all border border-transparent hover:border-primary/10 gap-4">
                     <div className="flex items-center gap-4 w-full md:w-auto">
                       <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-xl">
-                        {user.nome?.charAt(0).toUpperCase()}
+                        {(user.full_name || 'U').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <h3 className="font-black text-slate-800">{user.nome}</h3>
-                        <p className="text-xs font-bold text-slate-400">{user.email}</p>
+                        <h3 className="font-black text-slate-800">{user.full_name || 'Sem Nome'}</h3>
+                        <p className="text-xs font-bold text-slate-400">{user.email || 'Sem e-mail'}</p>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-8 w-full md:w-auto justify-between md:justify-end">
                       <div className="text-center">
                         <p className="text-[10px] font-black uppercase text-slate-400">Telefone</p>
-                        <p className="text-sm font-bold text-slate-600">{user.telefone || 'N/A'}</p>
+                        <p className="text-sm font-bold text-slate-600">{user.phone || 'N/A'}</p>
                       </div>
                       <div className="text-center">
                         <p className="text-[10px] font-black uppercase text-slate-400">Exercícios</p>
@@ -192,7 +191,7 @@ const Admin = () => {
                       <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-primary transition-all duration-1000" 
-                          style={{ width: `${(count / exercises.length) * 100}%` }}
+                          style={{ width: `${exercises.length > 0 ? (count / exercises.length) * 100 : 0}%` }}
                         />
                       </div>
                     </div>
@@ -215,7 +214,7 @@ const Admin = () => {
                         <div key={user.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
                           <div className="flex items-center gap-3">
                             <span className="text-lg font-black text-slate-300">#{i+1}</span>
-                            <span className="font-bold text-slate-700">{user.nome}</span>
+                            <span className="font-bold text-slate-700">{user.full_name || 'Usuário'}</span>
                           </div>
                           <div className="bg-white px-3 py-1 rounded-full border border-slate-100">
                             <span className="text-xs font-black text-primary">{completions} treinos</span>
@@ -226,26 +225,6 @@ const Admin = () => {
                   </div>
                 </CardContent>
               </Card>
-            </div>
-
-            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 p-10 border border-slate-100">
-              <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-                <Calendar size={20} className="text-primary" /> Resumo Geral de Atividade
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="p-6 bg-slate-50 rounded-[2rem] text-center">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Média de Exercícios/Aluno</p>
-                  <p className="text-4xl font-black text-slate-800">{(exercises.length / (users.length || 1)).toFixed(1)}</p>
-                </div>
-                <div className="p-6 bg-slate-50 rounded-[2rem] text-center">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Taxa de Conclusão</p>
-                  <p className="text-4xl font-black text-slate-800">84%</p>
-                </div>
-                <div className="p-6 bg-slate-50 rounded-[2rem] text-center">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Novos Alunos (Mês)</p>
-                  <p className="text-4xl font-black text-slate-800">{users.length}</p>
-                </div>
-              </div>
             </div>
           </TabsContent>
         </Tabs>

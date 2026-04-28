@@ -105,18 +105,16 @@ const Login = () => {
             full_name: formData.nome,
             phone: formData.telefone,
             email: formData.email,
-            redes_sociais: {
-              instagram: formData.instagram || '',
-              facebook: formData.facebook || '',
-              linkedin: formData.linkedin || ''
-            }
+            instagram: formData.instagram || '',
+            facebook: formData.facebook || '',
+            linkedin: formData.linkedin || ''
           });
           
           showSuccess("Cadastro realizado! Verifique seu e-mail para ativar sua conta.");
-          setStep(1); // Volta para o login para ele saber que precisa confirmar
+          setStep(1);
         }
       } else {
-        // Se for admin e deu erro de login (e não foi e-mail não confirmado), tentar criar o admin
+        // Se for admin e deu erro de login, tentar criar o admin
         const { error: adminSignUpError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
