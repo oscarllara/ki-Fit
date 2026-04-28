@@ -91,16 +91,22 @@ const Index = () => {
   }, [navigate]);
 
   const handleSaveExercise = async (exercise: any) => {
-    if (!user) return;
+    // Pegamos o ID diretamente da sessão atual para garantir que é válido
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
     
-    // Criamos um objeto limpo para evitar erros de colunas inexistentes
+    if (!currentUser) {
+      showError("Sessão expirada. Por favor, faça login novamente.");
+      navigate('/login');
+      return;
+    }
+    
     const exerciseData: any = {
       title: exercise.title,
-      name: exercise.title, // Mantemos name por compatibilidade
+      name: exercise.title,
       video_url: exercise.videoUrl,
       default_reps: exercise.defaultReps,
       default_weight: exercise.defaultWeight,
-      user_id: user.id,
+      user_id: currentUser.id, // Usando o ID garantido da sessão
       workout_type: activeTab
     };
 
@@ -111,11 +117,11 @@ const Index = () => {
 
       if (error) throw error;
 
-      await fetchExercises(user.id);
+      await fetchExercises(currentUser.id);
       showSuccess(editingExercise ? 'Atualizado!' : 'Adicionado!');
       setIsDialogOpen(false);
     } catch (err: any) {
-      showError("Erro: " + (err.message || "Verifique as permissões no Supabase"));
+      showError("Erro ao salvar: " + (err.message || "Erro de permissão"));
       console.error("Erro detalhado:", err);
     }
   };
