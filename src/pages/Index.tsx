@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import WorkoutHeader from '@/components/WorkoutHeader';
 import ExerciseCard from '@/components/ExerciseCard';
 import ExerciseDialog from '@/components/ExerciseDialog';
@@ -16,9 +16,9 @@ import { showSuccess, showError } from '@/utils/toast';
 interface Exercise {
   id: string;
   title: string;
-  videoUrl: string;
-  defaultReps: string;
-  defaultWeight: string;
+  video_url: string;
+  default_reps: string;
+  default_weight: string;
   level?: number;
   completions?: number;
   workout_type?: string;
@@ -84,19 +84,34 @@ const Index = () => {
     }
   };
 
-  const handleSaveExercise = async (exercise: Exercise) => {
+  const handleSaveExercise = async (exercise: any) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const exerciseData = {
-      ...exercise,
+      title: exercise.title,
+      video_url: exercise.videoUrl,
+      default_reps: exercise.defaultReps,
+      default_weight: exercise.defaultWeight,
       user_id: user.id,
       workout_type: activeTab,
       level: exercise.level || 1,
       completions: exercise.completions || 0
     };
 
-    const { error } = await supabase.from('exercises').upsert(exerciseData);
+    let error;
+    if (editingExercise) {
+      const { error: updateError } = await supabase
+        .from('exercises')
+        .update(exerciseData)
+        .eq('id', editingExercise.id);
+      error = updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from('exercises')
+        .insert(exerciseData);
+      error = insertError;
+    }
 
     if (error) {
       showError("Erro ao salvar exercício");
@@ -164,8 +179,17 @@ const Index = () => {
                 {workouts[type].map((ex, index) => (
                   <div key={ex.id} className="exercise-card-enter" style={{ animationDelay: `${index * 0.1}s` }}>
                     <ExerciseCard 
-                      {...ex}
-                      onEdit={() => { setEditingExercise(ex); setIsDialogOpen(true); }}
+                      id={ex.id}
+                      title={ex.title}
+                      videoUrl={ex.video_url}
+                      defaultReps={ex.default_reps}
+                      defaultWeight={ex.default_weight}
+                      level={ex.level}
+                      completions={ex.completions}
+                      onEdit={() => { 
+                        setEditingExercise(ex); 
+                        setIsDialogOpen(true); 
+                      }}
                       onDelete={() => handleDeleteExercise(ex.id)}
                       onUpdateStats={handleUpdateStats}
                     />
@@ -186,7 +210,13 @@ const Index = () => {
         isOpen={isDialogOpen} 
         onClose={() => setIsDialogOpen(false)} 
         onSave={handleSaveExercise}
-        initialData={editingExercise}
+        initialData={editingExercise ? {
+          id: editingExercise.id,
+          title: editingExercise.title,
+          videoUrl: editingExercise.video_url,
+          defaultReps: editingExercise.default_reps,
+          defaultWeight: editingExercise.default_weight
+        } : null}
       />
       <footer className="mt-12"><MadeWithDyad /></footer>
     </div>
