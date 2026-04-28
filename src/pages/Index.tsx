@@ -39,39 +39,40 @@ const Index = () => {
 
   const fetchExercises = async (userId: string) => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('exercises')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (error) {
-      showError("Erro ao carregar treinos");
-      setLoading(false);
-      return;
-    }
+    try {
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (error) throw error;
 
-    const organized: Record<WorkoutType, Exercise[]> = { A: [], B: [], C: [] };
-    if (data) {
-      data.forEach((ex: any) => {
-        const type = (ex.workout_type || 'A') as WorkoutType;
-        organized[type].push({
-          id: ex.id,
-          title: ex.title || ex.name || 'Exercício',
-          video_url: ex.video_url || '',
-          default_reps: ex.default_reps || '3x12',
-          default_weight: ex.default_weight || '0',
-          level: ex.level || 1,
-          completions: ex.completions || 0,
-          workout_type: type
+      const organized: Record<WorkoutType, Exercise[]> = { A: [], B: [], C: [] };
+      if (data) {
+        data.forEach((ex: any) => {
+          const type = (ex.workout_type || 'A') as WorkoutType;
+          organized[type].push({
+            id: ex.id,
+            title: ex.title || ex.name || 'Exercício',
+            video_url: ex.video_url || '',
+            default_reps: ex.default_reps || '3x12',
+            default_weight: ex.default_weight || '0',
+            level: ex.level || 1,
+            completions: ex.completions || 0,
+            workout_type: type
+          });
         });
-      });
+      }
+      setWorkouts(organized);
+    } catch (err: any) {
+      showError("Erro ao carregar: " + err.message);
+    } finally {
+      setLoading(false);
     }
-    setWorkouts(organized);
-    setLoading(false);
   };
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (data) setUser(prev => ({ ...prev, ...data }));
   };
 
@@ -91,9 +92,11 @@ const Index = () => {
 
   const handleSaveExercise = async (exercise: any) => {
     if (!user) return;
-    const exerciseData = {
+    
+    // Criamos um objeto limpo para evitar erros de colunas inexistentes
+    const exerciseData: any = {
       title: exercise.title,
-      name: exercise.title,
+      name: exercise.title, // Mantemos name por compatibilidade
       video_url: exercise.videoUrl,
       default_reps: exercise.defaultReps,
       default_weight: exercise.defaultWeight,
@@ -101,26 +104,30 @@ const Index = () => {
       workout_type: activeTab
     };
 
-    const { error } = editingExercise 
-      ? await supabase.from('exercises').update(exerciseData).eq('id', editingExercise.id)
-      : await supabase.from('exercises').insert(exerciseData);
+    try {
+      const { error } = editingExercise 
+        ? await supabase.from('exercises').update(exerciseData).eq('id', editingExercise.id)
+        : await supabase.from('exercises').insert([exerciseData]);
 
-    if (error) {
-      showError("Erro ao salvar exercício");
-      console.error(error);
-    } else {
-      fetchExercises(user.id);
+      if (error) throw error;
+
+      await fetchExercises(user.id);
       showSuccess(editingExercise ? 'Atualizado!' : 'Adicionado!');
+      setIsDialogOpen(false);
+    } catch (err: any) {
+      showError("Erro: " + (err.message || "Verifique as permissões no Supabase"));
+      console.error("Erro detalhado:", err);
     }
   };
 
   const handleUpdateProfile = async (data: any) => {
-    const { error } = await supabase.from('profiles').upsert({ id: user.id, ...data });
-    if (!error) {
+    try {
+      const { error } = await supabase.from('profiles').upsert({ id: user.id, ...data });
+      if (error) throw error;
       setUser(prev => ({ ...prev, ...data }));
       showSuccess("Perfil atualizado!");
-    } else {
-      showError("Erro ao atualizar perfil");
+    } catch (err: any) {
+      showError("Erro no perfil: " + err.message);
     }
   };
 
@@ -182,17 +189,24 @@ const Index = () => {
                       onEdit={() => { setEditingExercise(ex); setIsDialogOpen(true); }}
                       onDelete={async () => {
                         if (confirm('Excluir?')) {
-                          await supabase.from('exercises').delete().eq('id', ex.id);
-                          fetchExercises(user.id);
+                          const { error } = await supabase.from('exercises').delete().eq('id', ex.id);
+                          if (!error) fetchExercises(user.id);
+                          else showError("Erro ao excluir: " + error.message);
                         }
                       }}
                       onUpdateStats={async (id, completions, level) => {
-                        await supabase.from('exercises').update({ completions, level }).eq('id', id);
-                        fetchExercises(user.id);
+                        const { error } = await supabase.from('exercises').update({ completions, level }).eq('id', id);
+                        if (!error) fetchExercises(user.id);
                       }}
                     />
                   </div>
                 ))}
+                {!loading && workouts[type].length === 0 && (
+                  <div className="col-span-full py-20 text-center space-y-4 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+                    <p className="text-slate-400 font-bold">Nenhum exercício neste treino ainda.</p>
+                    <Button onClick={() => setIsDialogOpen(true)} variant="outline" className="rounded-full">Começar agora</Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
           ))}
