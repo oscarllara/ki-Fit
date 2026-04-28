@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { User, LogOut, Shield, ChevronDown, Camera } from 'lucide-react';
+import { User, LogOut, Shield, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,6 +22,7 @@ interface UserNavProps {
 }
 
 const UserNav = ({ user, onLogout, onAdmin, onProfileUpdate, isAdmin }: UserNavProps) => {
+  // Pega o nome completo e extrai apenas o primeiro nome
   const fullName = user?.full_name || user?.nome || 'Usuário';
   const firstName = fullName.split(' ')[0];
   const initials = firstName.slice(0, 2).toUpperCase();
