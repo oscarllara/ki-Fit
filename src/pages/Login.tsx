@@ -52,10 +52,6 @@ const Login = () => {
         showError("Nome e Telefone são obrigatórios");
         return false;
       }
-      if (formData.telefone.length < 14) {
-        showError("Telefone incompleto");
-        return false;
-      }
     }
     return true;
   };
@@ -63,17 +59,9 @@ const Login = () => {
   const handleAuth = async () => {
     if (!validateStep1()) return;
 
-    // Verificação robusta se o Supabase foi configurado
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const isNotConfigured = !supabaseUrl || supabaseUrl.includes('placeholder');
-
-    if (isNotConfigured) {
-      showError("Ação necessária: Clique no botão 'Add Supabase' acima para ativar o sistema.");
-      return;
-    }
-
     setLoading(true);
     try {
+      // Login Admin
       if (formData.email === 'admin@admin.com' && formData.password === 'Senha@123') {
         const { error } = await supabase.auth.signInWithPassword({
           email: formData.email,
@@ -93,18 +81,31 @@ const Login = () => {
         return;
       }
 
+      // Cadastro/Login Usuário
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Tentar login se já existir
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+        if (signInError) throw signInError;
+        
+        showSuccess("Bem-vindo de volta!");
+        navigate('/');
+        return;
+      }
 
       if (data.user) {
+        // Usando nomes de colunas compatíveis com o schema existente
         await supabase.from('profiles').upsert({
           id: data.user.id,
-          nome: formData.nome,
-          telefone: formData.telefone,
+          full_name: formData.nome,
+          phone: formData.telefone,
           email: formData.email,
           redes_sociais: {
             instagram: formData.instagram || '',
@@ -117,11 +118,7 @@ const Login = () => {
       showSuccess(`Bem-vindo, ${formData.nome}!`);
       navigate('/');
     } catch (error: any) {
-      if (error.message === 'Failed to fetch') {
-        showError("Erro de conexão. Verifique se o Supabase foi configurado corretamente.");
-      } else {
-        showError(error.message || "Erro ao realizar acesso");
-      }
+      showError(error.message || "Erro ao realizar acesso");
     } finally {
       setLoading(false);
     }
@@ -181,13 +178,6 @@ const Login = () => {
                     <Input 
                       value={formData.telefone}
                       onChange={(e) => setFormData({...formData, telefone: formatPhone(e.target.value)})}
-                      onFocus={(e) => {
-                        if (e.target.value === '+55 ') {
-                          const val = e.target.value;
-                          e.target.value = '';
-                          e.target.value = val;
-                        }
-                      }}
                       className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
                       placeholder="+55 (00) 00000-0000"
                     />
@@ -209,9 +199,6 @@ const Login = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="text-center mb-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-primary">Opcional</p>
-              </div>
               <SocialInput 
                 label="Instagram" 
                 prefix="instagram.com/" 
@@ -234,14 +221,6 @@ const Login = () => {
                 icon={<Linkedin size={14} />}
               />
               
-              <div className="pt-4 space-y-3">
-                <p className="text-[10px] font-black text-center uppercase tracking-widest text-slate-400">Ou acesse com</p>
-                <div className="flex justify-center gap-4">
-                  <Button variant="outline" size="icon" className="rounded-2xl h-12 w-12 border-slate-200"><Chrome size={20} /></Button>
-                  <Button variant="outline" size="icon" className="rounded-2xl h-12 w-12 border-slate-200"><Apple size={20} /></Button>
-                </div>
-              </div>
-
               <div className="flex gap-3 pt-4">
                 <Button variant="ghost" onClick={() => setStep(1)} className="flex-1 h-14 rounded-2xl font-bold text-slate-500">Voltar</Button>
                 <Button onClick={handleAuth} disabled={loading} className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest">

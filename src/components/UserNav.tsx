@@ -21,7 +21,8 @@ interface UserNavProps {
 }
 
 const UserNav = ({ user, onLogout, onAdmin, isAdmin }: UserNavProps) => {
-  const initials = user?.nome?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
+  const userName = user?.full_name || user?.nome || 'Usuário';
+  const initials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
   return (
     <div className="fixed top-6 right-6 z-50">
@@ -36,7 +37,7 @@ const UserNav = ({ user, onLogout, onAdmin, isAdmin }: UserNavProps) => {
               </Avatar>
               <div className="flex flex-col items-start text-left hidden sm:flex">
                 <span className="text-xs font-black text-slate-800 leading-none uppercase tracking-tighter">
-                  {user?.nome || 'Usuário'}
+                  {userName}
                 </span>
                 <span className="text-[10px] font-bold text-slate-400 leading-none mt-1">
                   {isAdmin ? 'Gestor Ki-Fit' : 'Atleta'}
