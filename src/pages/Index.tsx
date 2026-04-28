@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import WorkoutHeader from '@/components/WorkoutHeader';
 import ExerciseCard from '@/components/ExerciseCard';
 import ExerciseDialog from '@/components/ExerciseDialog';
+import ProfileDialog from '@/components/ProfileDialog';
 import UserNav from '@/components/UserNav';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,6 +32,7 @@ const Index = () => {
   const [workouts, setWorkouts] = useState<Record<WorkoutType, Exercise[]>>({ A: [], B: [], C: [] });
   const [activeTab, setActiveTab] = useState<WorkoutType>('A');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -49,14 +51,12 @@ const Index = () => {
     }
 
     const organized: Record<WorkoutType, Exercise[]> = { A: [], B: [], C: [] };
-    
     if (data) {
       data.forEach((ex: any) => {
         const type = (ex.workout_type || 'A') as WorkoutType;
-        // Garantindo que pegamos o nome correto independente da coluna (name ou title)
         organized[type].push({
           id: ex.id,
-          title: ex.title || ex.name || 'Exercício sem nome',
+          title: ex.title || ex.name || 'Exercício',
           video_url: ex.video_url || '',
           default_reps: ex.default_reps || '3x12',
           default_weight: ex.default_weight || '0',
@@ -66,9 +66,13 @@ const Index = () => {
         });
       });
     }
-    
     setWorkouts(organized);
     setLoading(false);
+  };
+
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (data) setUser(prev => ({ ...prev, ...data }));
   };
 
   useEffect(() => {
@@ -78,77 +82,45 @@ const Index = () => {
         navigate('/login');
         return;
       }
-      
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
-      setUser({ ...authUser, ...profile });
+      setUser(authUser);
+      fetchProfile(authUser.id);
       fetchExercises(authUser.id);
     };
     checkUser();
   }, [navigate]);
 
-  const handleUpdateStats = async (id: string, completions: number, level: number) => {
-    const { error } = await supabase
-      .from('exercises')
-      .update({ completions, level })
-      .eq('id', id);
-
-    if (!error) {
-      setWorkouts(prev => ({
-        ...prev,
-        [activeTab]: prev[activeTab].map(ex => 
-          ex.id === id ? { ...ex, completions, level } : ex
-        )
-      }));
-    }
-  };
-
   const handleSaveExercise = async (exercise: any) => {
     if (!user) return;
-
     const exerciseData = {
       title: exercise.title,
-      name: exercise.title, // Mantendo compatibilidade
+      name: exercise.title,
       video_url: exercise.videoUrl,
       default_reps: exercise.defaultReps,
       default_weight: exercise.defaultWeight,
       user_id: user.id,
-      workout_type: activeTab,
-      level: exercise.level || 1,
-      completions: exercise.completions || 0
+      workout_type: activeTab
     };
 
-    let error;
-    if (editingExercise) {
-      const { error: updateError } = await supabase
-        .from('exercises')
-        .update(exerciseData)
-        .eq('id', editingExercise.id);
-      error = updateError;
-    } else {
-      const { error: insertError } = await supabase
-        .from('exercises')
-        .insert(exerciseData);
-      error = insertError;
-    }
+    const { error } = editingExercise 
+      ? await supabase.from('exercises').update(exerciseData).eq('id', editingExercise.id)
+      : await supabase.from('exercises').insert(exerciseData);
 
     if (error) {
       showError("Erro ao salvar exercício");
+      console.error(error);
     } else {
       fetchExercises(user.id);
       showSuccess(editingExercise ? 'Atualizado!' : 'Adicionado!');
     }
   };
 
-  const handleDeleteExercise = async (id: string) => {
-    if (confirm('Excluir este exercício?')) {
-      const { error } = await supabase.from('exercises').delete().eq('id', id);
-      if (!error) {
-        setWorkouts(prev => ({
-          ...prev,
-          [activeTab]: prev[activeTab].filter(ex => ex.id !== id)
-        }));
-        showSuccess('Removido!');
-      }
+  const handleUpdateProfile = async (data: any) => {
+    const { error } = await supabase.from('profiles').upsert({ id: user.id, ...data });
+    if (!error) {
+      setUser(prev => ({ ...prev, ...data }));
+      showSuccess("Perfil atualizado!");
+    } else {
+      showError("Erro ao atualizar perfil");
     }
   };
 
@@ -163,6 +135,7 @@ const Index = () => {
         user={user} 
         onLogout={handleLogout} 
         onAdmin={() => navigate('/admin')}
+        onProfileUpdate={() => setIsProfileOpen(true)}
         isAdmin={user?.email === 'admin@admin.com'}
       />
       
@@ -189,15 +162,10 @@ const Index = () => {
                   <h2 className="text-3xl font-black text-slate-800 tracking-tighter">Exercícios do Dia</h2>
                 </div>
                 <div className="flex gap-3">
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => user && fetchExercises(user.id)}
-                    className="rounded-full h-14 w-14 border-none bg-white shadow-xl hover:bg-slate-50"
-                  >
+                  <Button variant="outline" size="icon" onClick={() => user && fetchExercises(user.id)} className="rounded-full h-14 w-14 border-none bg-white shadow-xl">
                     <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
                   </Button>
-                  <Button onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} size="lg" className="rounded-full h-14 w-14 p-0 shadow-2xl shadow-primary/40 hover:scale-110 transition-transform">
+                  <Button onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} size="lg" className="rounded-full h-14 w-14 p-0 shadow-2xl shadow-primary/40">
                     <Plus size={24} />
                   </Button>
                 </div>
@@ -207,33 +175,24 @@ const Index = () => {
                 {workouts[type].map((ex, index) => (
                   <div key={ex.id} className="exercise-card-enter" style={{ animationDelay: `${index * 0.1}s` }}>
                     <ExerciseCard 
-                      id={ex.id}
-                      title={ex.title}
+                      {...ex}
                       videoUrl={ex.video_url}
                       defaultReps={ex.default_reps}
                       defaultWeight={ex.default_weight}
-                      level={ex.level}
-                      completions={ex.completions}
-                      onEdit={() => { 
-                        setEditingExercise(ex); 
-                        setIsDialogOpen(true); 
+                      onEdit={() => { setEditingExercise(ex); setIsDialogOpen(true); }}
+                      onDelete={async () => {
+                        if (confirm('Excluir?')) {
+                          await supabase.from('exercises').delete().eq('id', ex.id);
+                          fetchExercises(user.id);
+                        }
                       }}
-                      onDelete={() => handleDeleteExercise(ex.id)}
-                      onUpdateStats={handleUpdateStats}
+                      onUpdateStats={async (id, completions, level) => {
+                        await supabase.from('exercises').update({ completions, level }).eq('id', id);
+                        fetchExercises(user.id);
+                      }}
                     />
                   </div>
                 ))}
-                {!loading && workouts[type].length === 0 && (
-                  <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-                    <p className="text-slate-400 font-bold">Nenhum exercício neste treino ainda.</p>
-                    <p className="text-[10px] uppercase tracking-widest mt-2 text-slate-300">Toque no + para adicionar</p>
-                  </div>
-                )}
-                {loading && (
-                  <div className="col-span-full py-20 text-center">
-                    <RefreshCw size={32} className="animate-spin mx-auto text-primary/20" />
-                  </div>
-                )}
               </div>
             </TabsContent>
           ))}
@@ -251,6 +210,13 @@ const Index = () => {
           defaultReps: editingExercise.default_reps,
           defaultWeight: editingExercise.default_weight
         } : null}
+      />
+
+      <ProfileDialog 
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        onSave={handleUpdateProfile}
+        initialData={user}
       />
       <footer className="mt-12"><MadeWithDyad /></footer>
     </div>
