@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Instagram, Facebook, Linkedin, Chrome, Apple, ArrowRight, Zap, Lock } from 'lucide-react';
+import { Instagram, Facebook, Linkedin, ArrowRight, Zap, Lock, Mail } from 'lucide-react';
 import SocialInput from '@/components/SocialInput';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -61,62 +61,71 @@ const Login = () => {
 
     setLoading(true);
     try {
-      // Login Admin
-      if (formData.email === 'admin@admin.com' && formData.password === 'Senha@123') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-        
-        if (error) {
-          const { error: signUpError } = await supabase.auth.signUp({
-            email: formData.email,
-            password: formData.password,
-          });
-          if (signUpError) throw signUpError;
-        }
-        
-        showSuccess("Acesso Gestor concedido!");
-        navigate('/admin');
-        return;
-      }
-
-      // Cadastro/Login Usuário
-      const { data, error } = await supabase.auth.signUp({
+      // Tentar Login Primeiro
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
-      if (error) {
-        // Tentar login se já existir
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-        if (signInError) throw signInError;
-        
+      if (!signInError) {
         showSuccess("Bem-vindo de volta!");
-        navigate('/');
+        if (formData.email === 'admin@admin.com') {
+          navigate('/admin');
+        } else {
+          navigate('/');
+        }
         return;
       }
 
-      if (data.user) {
-        // Usando nomes de colunas compatíveis com o schema existente
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          full_name: formData.nome,
-          phone: formData.telefone,
-          email: formData.email,
-          redes_sociais: {
-            instagram: formData.instagram || '',
-            facebook: formData.facebook || '',
-            linkedin: formData.linkedin || ''
-          }
-        });
+      // Se o erro for e-mail não confirmado
+      if (signInError.message.includes("Email not confirmed")) {
+        showError("Por favor, confirme seu e-mail antes de entrar. Verifique sua caixa de entrada!");
+        setLoading(false);
+        return;
       }
 
-      showSuccess(`Bem-vindo, ${formData.nome}!`);
-      navigate('/');
+      // Se não for erro de e-mail não confirmado e não for admin, tentar cadastro
+      if (formData.email !== 'admin@admin.com') {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: formData.nome,
+              phone: formData.telefone,
+            }
+          }
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (signUpData.user) {
+          await supabase.from('profiles').upsert({
+            id: signUpData.user.id,
+            full_name: formData.nome,
+            phone: formData.telefone,
+            email: formData.email,
+            redes_sociais: {
+              instagram: formData.instagram || '',
+              facebook: formData.facebook || '',
+              linkedin: formData.linkedin || ''
+            }
+          });
+          
+          showSuccess("Cadastro realizado! Verifique seu e-mail para ativar sua conta.");
+          setStep(1); // Volta para o login para ele saber que precisa confirmar
+        }
+      } else {
+        // Se for admin e deu erro de login (e não foi e-mail não confirmado), tentar criar o admin
+        const { error: adminSignUpError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+        });
+        
+        if (adminSignUpError) throw adminSignUpError;
+        showSuccess("Usuário Gestor criado! Verifique o e-mail admin@admin.com para ativar.");
+      }
+
     } catch (error: any) {
       showError(error.message || "Erro ao realizar acesso");
     } finally {
@@ -196,6 +205,10 @@ const Login = () => {
               >
                 {formData.email === 'admin@admin.com' ? 'Entrar como Gestor' : 'Próximo'} <ArrowRight className="ml-2" size={18} />
               </Button>
+              
+              <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+                <Mail size={12} /> Verifique seu e-mail após o cadastro
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
