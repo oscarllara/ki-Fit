@@ -41,12 +41,19 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
     }
   }, [initialData, isOpen]);
 
+  const capitalizeWords = (str: string) => {
+    return str
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   const handleSave = () => {
     if (!title.trim()) return;
     
     onSave({
       id: initialData?.id || Math.random().toString(36).substr(2, 9),
-      title,
+      title: title.trim(),
       videoUrl,
       defaultReps: reps,
       defaultWeight: weight,
@@ -68,7 +75,7 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
             <Input 
               id="title" 
               value={title} 
-              onChange={(e) => setTitle(e.target.value)} 
+              onChange={(e) => setTitle(capitalizeWords(e.target.value))} 
               placeholder="Ex: Supino Reto" 
               className="h-12 rounded-2xl bg-slate-50 border-none font-bold"
             />
