@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ExerciseDialog from '@/components/ExerciseDialog';
 import StudentDialog from '@/components/StudentDialog';
+import StudentDetailsSheet from '@/components/StudentDetailsSheet';
 import { showSuccess, showError } from '@/utils/toast';
 
 const Admin = () => {
@@ -22,6 +23,7 @@ const Admin = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all');
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [viewingUser, setViewingUser] = useState<any>(null);
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
 
@@ -40,9 +42,7 @@ const Admin = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Usamos a Edge Function para ignorar o RLS e ver todos os alunos
       const { data, error } = await supabase.functions.invoke('admin-get-users');
-      
       if (error) throw error;
       setUsers(data || []);
     } catch (err: any) {
@@ -190,7 +190,10 @@ const Admin = () => {
                 ) : filteredUsers.length > 0 ? (
                   filteredUsers.map((user) => (
                     <div key={user.id} className="flex flex-col md:flex-row items-center justify-between p-6 bg-slate-50 rounded-3xl gap-4">
-                      <div className="flex items-center gap-4 w-full md:w-auto">
+                      <button 
+                        onClick={() => setViewingUser(user)}
+                        className="flex items-center gap-4 w-full md:w-auto text-left hover:opacity-80 transition-opacity"
+                      >
                         <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-xl overflow-hidden">
                           {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" /> : (user.full_name?.charAt(0) || '?')}
                         </div>
@@ -198,7 +201,7 @@ const Admin = () => {
                           <h3 className="font-black text-slate-800">{user.full_name || 'Usuário sem nome'}</h3>
                           <p className="text-xs font-bold text-slate-400">{user.email || 'E-mail não sincronizado'}</p>
                         </div>
-                      </div>
+                      </button>
                       <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest w-full md:w-auto">
                         <Plus size={14} className="mr-2" /> Add Treino
                       </Button>
@@ -270,6 +273,7 @@ const Admin = () => {
 
       <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={handleAddExerciseToUser} />
       <StudentDialog isOpen={isStudentDialogOpen} onClose={() => setIsStudentDialogOpen(false)} onSave={handleCreateStudent} />
+      <StudentDetailsSheet student={viewingUser} isOpen={!!viewingUser} onClose={() => setViewingUser(null)} />
     </div>
   );
 };
