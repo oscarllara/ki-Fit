@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
   Users, ShieldCheck, ArrowLeft, Plus, 
-  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw, X
+  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw, X, Calendar
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import ExerciseDialog from '@/components/ExerciseDialog';
 import StudentDialog from '@/components/StudentDialog';
 import StudentDetailsSheet from '@/components/StudentDetailsSheet';
 import { showSuccess, showError } from '@/utils/toast';
+import { format, differenceInMonths, startOfMonth, addMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const CurrencyInput = ({ initialValue, onSave }: { initialValue: number, onSave: (val: number) => void }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -29,12 +31,8 @@ const CurrencyInput = ({ initialValue, onSave }: { initialValue: number, onSave:
     setIsFocused(false);
     const cleanValue = localValue.replace(/\./g, '').replace(',', '.');
     const numericValue = parseFloat(cleanValue);
-    
-    if (!isNaN(numericValue)) {
-      onSave(numericValue);
-    } else {
-      setLocalValue((initialValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-    }
+    if (!isNaN(numericValue)) onSave(numericValue);
+    else setLocalValue((initialValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   };
 
   return (
@@ -43,9 +41,7 @@ const CurrencyInput = ({ initialValue, onSave }: { initialValue: number, onSave:
       onChange={(e) => setLocalValue(e.target.value)}
       onFocus={() => setIsFocused(true)}
       onBlur={handleBlur}
-      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       className="h-10 rounded-xl bg-slate-50 border-none font-black text-slate-800 focus:bg-white focus:ring-2 focus:ring-primary/20"
-      placeholder="0,00"
     />
   );
 };
@@ -92,8 +88,7 @@ const Admin = () => {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-profiles');
-      if (error) throw error;
+      await supabase.functions.invoke('sync-profiles');
       showSuccess("Sincronizado!");
       fetchData();
     } catch (err: any) {
@@ -103,58 +98,61 @@ const Admin = () => {
     }
   };
 
-  const updateMembership = async (userId: string, status: string) => {
-    const { error } = await supabase.from('profiles').update({ subscription_status: status }).eq('id', userId);
-    if (!error) {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, subscription_status: status } : u));
-      showSuccess(`Matrícula ${status === 'Ativo' ? 'Ativada' : 'Inativada'}`);
-    }
-  };
-
-  const updatePayment = async (userId: string, status: string) => {
+  const updatePayment = async (user: any, status: string) => {
+    const now = new Date();
     const updateData: any = { payment_status: status };
-    if (status === 'Pago') updateData.updated_at = new Date().toISOString();
+    
+    if (status === 'Pago') {
+      updateData.last_payment_date = now.toISOString();
+      // Acumula o valor pago ao total histórico
+      updateData.total_paid = (Number(user.total_paid) || 0) + (Number(user.monthly_fee) || 0);
+    }
 
-    const { error } = await supabase.from('profiles').update(updateData).eq('id', userId);
+    const { error } = await supabase.from('profiles').update(updateData).eq('id', user.id);
     if (!error) {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updateData } : u));
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...updateData } : u));
       showSuccess(status === 'Pago' ? "Pagamento Confirmado!" : "Pagamento Pendente!");
     }
   };
 
-  const updateMonthlyFee = async (userId: string, val: number) => {
-    const { error } = await supabase.from('profiles').update({ monthly_fee: val }).eq('id', userId);
+  const updateField = async (userId: string, field: string, value: any) => {
+    const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', userId);
     if (!error) {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, monthly_fee: val } : u));
-      showSuccess("Valor atualizado!");
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, [field]: value } : u));
+      showSuccess("Atualizado!");
     }
   };
 
-  const handleSaveExercise = async (exercise: any) => {
-    if (!selectedUser) return;
-    
-    const exerciseData = {
-      title: exercise.title,
-      name: exercise.title,
-      video_url: exercise.videoUrl,
-      default_reps: exercise.defaultReps,
-      default_weight: exercise.defaultWeight,
-      user_id: selectedUser.id,
-      workout_type: 'A' // Padrão para admin
+  const calculateFinancials = () => {
+    let totalPrevisto = 0;
+    let totalRecebido = 0;
+    const now = new Date();
+
+    users.forEach(u => {
+      const fee = Number(u.monthly_fee) || 0;
+      const joinDate = new Date(u.created_at || now);
+      const dueDay = Number(u.due_day) || 10;
+      
+      // Calcula meses desde a entrada
+      let months = differenceInMonths(now, joinDate) + 1;
+      
+      // Se hoje passou do dia de vencimento, já conta o próximo mês (lógica dia + 1)
+      if (now.getDate() > dueDay) {
+        months += 1;
+      }
+
+      totalPrevisto += (fee * months);
+      totalRecebido += (Number(u.total_paid) || 0);
+    });
+
+    return {
+      totalPrevisto,
+      totalRecebido,
+      totalPendente: totalPrevisto - totalRecebido
     };
-
-    const { error } = await supabase.from('exercises').insert([exerciseData]);
-    if (!error) {
-      showSuccess(`Treino adicionado para ${selectedUser.full_name}`);
-      setIsExerciseDialogOpen(false);
-    } else {
-      showError("Erro ao salvar treino");
-    }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
+  const { totalPrevisto, totalRecebido, totalPendente } = calculateFinancials();
 
   const filteredUsers = users.filter(u => {
     const matchesSearch = (u.full_name || u.email || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -162,10 +160,6 @@ const Admin = () => {
     const matchesPayment = paymentFilter === 'all' ? true : (u.payment_status || 'Pendente') === paymentFilter;
     return matchesSearch && matchesStatus && matchesPayment;
   });
-
-  const totalPrevisto = users.reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
-  const totalRecebido = users.filter(u => u.payment_status === 'Pago').reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
-  const totalPendente = totalPrevisto - totalRecebido;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
@@ -191,22 +185,15 @@ const Admin = () => {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button 
-              onClick={() => { setStatusFilter('all'); setPaymentFilter('all'); setActiveTab('alunos'); }}
-              className={`p-6 rounded-[2rem] border text-left transition-all duration-300 ${statusFilter === 'all' && paymentFilter === 'all' ? 'bg-primary border-primary shadow-xl shadow-primary/20 scale-[1.02]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-            >
-              <Users className={`${statusFilter === 'all' && paymentFilter === 'all' ? 'text-white' : 'text-primary'} mb-2`} size={20} />
+            <button onClick={() => { setStatusFilter('all'); setPaymentFilter('all'); setActiveTab('alunos'); }} className={`p-6 rounded-[2rem] border text-left transition-all ${statusFilter === 'all' ? 'bg-primary border-primary' : 'bg-white/5 border-white/10'}`}>
+              <Users className="mb-2" size={20} />
               <p className="text-[10px] font-black uppercase text-slate-400">Total Alunos</p>
-              <p className="text-2xl md:text-3xl font-black">{users.length}</p>
+              <p className="text-2xl font-black">{users.length}</p>
             </button>
-            
-            <button 
-              onClick={() => { setStatusFilter('Ativo'); setPaymentFilter('all'); setActiveTab('alunos'); }}
-              className={`p-6 rounded-[2rem] border text-left transition-all duration-300 ${statusFilter === 'Ativo' ? 'bg-green-500 border-green-500 shadow-xl shadow-green-500/20 scale-[1.02]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-            >
-              <CheckCircle2 className={`${statusFilter === 'Ativo' ? 'text-white' : 'text-green-400'} mb-2`} size={20} />
+            <button onClick={() => { setStatusFilter('Ativo'); setPaymentFilter('all'); setActiveTab('alunos'); }} className={`p-6 rounded-[2rem] border text-left transition-all ${statusFilter === 'Ativo' ? 'bg-green-500 border-green-500' : 'bg-white/5 border-white/10'}`}>
+              <CheckCircle2 className="mb-2" size={20} />
               <p className="text-[10px] font-black uppercase text-slate-400">Ativos</p>
-              <p className="text-2xl md:text-3xl font-black">{users.filter(u => u.subscription_status === 'Ativo').length}</p>
+              <p className="text-2xl font-black">{users.filter(u => u.subscription_status === 'Ativo').length}</p>
             </button>
           </div>
         </div>
@@ -219,20 +206,84 @@ const Admin = () => {
             <TabsTrigger value="financeiro" className="rounded-xl font-black text-xs uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white h-full px-8">Financeiro</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="financeiro" className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-8 rounded-[2.5rem] shadow-xl border bg-white border-slate-100">
+                <TrendingUp className="text-blue-600 mb-4" size={24} />
+                <p className="text-[10px] font-black uppercase text-slate-400">Total Previsto (Acumulado)</p>
+                <p className="text-3xl font-black text-slate-800">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPrevisto)}</p>
+              </div>
+              <div className="p-8 rounded-[2.5rem] shadow-xl border bg-white border-slate-100">
+                <Wallet className="text-green-600 mb-4" size={24} />
+                <p className="text-[10px] font-black uppercase text-slate-400">Recebido (Total)</p>
+                <p className="text-3xl font-black text-green-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRecebido)}</p>
+              </div>
+              <div className="p-8 rounded-[2.5rem] shadow-xl border bg-white border-slate-100">
+                <AlertCircle className="text-red-600 mb-4" size={24} />
+                <p className="text-[10px] font-black uppercase text-slate-400">Pendente</p>
+                <p className="text-3xl font-black text-red-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPendente)}</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
+              <h2 className="text-2xl font-black text-slate-800 mb-8">Controle de Mensalidades</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
+                      <th className="pb-4">Aluno</th>
+                      <th className="pb-4">Valor (R$)</th>
+                      <th className="pb-4">Vencimento (Dia)</th>
+                      <th className="pb-4">Último Pagto</th>
+                      <th className="pb-4">Status</th>
+                      <th className="pb-4">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredUsers.map((user) => (
+                      <tr key={user.id}>
+                        <td className="py-4 font-bold text-slate-700">{user.full_name || user.email}</td>
+                        <td className="py-4">
+                          <div className="w-28">
+                            <CurrencyInput initialValue={user.monthly_fee || 0} onSave={(val) => updateField(user.id, 'monthly_fee', val)} />
+                          </div>
+                        </td>
+                        <td className="py-4">
+                          <Input 
+                            type="number" 
+                            value={user.due_day || 10} 
+                            onChange={(e) => updateField(user.id, 'due_day', parseInt(e.target.value))}
+                            className="w-16 h-10 rounded-xl bg-slate-50 border-none font-black text-center"
+                          />
+                        </td>
+                        <td className="py-4 text-xs font-bold text-slate-500">
+                          {user.last_payment_date ? format(new Date(user.last_payment_date), 'dd/MM/yy HH:mm') : '---'}
+                        </td>
+                        <td className="py-4">
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${user.payment_status === 'Pago' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                            {user.payment_status === 'Pago' ? 'PAGO' : 'PENDENTE'}
+                          </span>
+                        </td>
+                        <td className="py-4">
+                          <div className="flex gap-2">
+                            <Button size="sm" variant={user.payment_status === 'Pago' ? 'default' : 'outline'} onClick={() => updatePayment(user, 'Pago')} className="rounded-lg text-[10px] font-black h-9 px-4">PAGO</Button>
+                            <Button size="sm" variant={user.payment_status === 'Pendente' ? 'destructive' : 'outline'} onClick={() => updatePayment(user, 'Pendente')} className="rounded-lg text-[10px] font-black h-9 px-4">PENDENTE</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </TabsContent>
+
           <TabsContent value="alunos" className="space-y-6">
             <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
               <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-2xl font-black text-slate-800">Gestão de Alunos</h2>
-                  {(statusFilter !== 'all' || paymentFilter !== 'all' || searchTerm) && (
-                    <Button variant="ghost" size="sm" onClick={() => { setStatusFilter('all'); setPaymentFilter('all'); setSearchTerm(''); }} className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5">
-                      <X size={14} className="mr-1" /> Limpar Filtros
-                    </Button>
-                  )}
-                </div>
+                <h2 className="text-2xl font-black text-slate-800">Gestão de Alunos</h2>
                 <Input placeholder="Buscar aluno..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-72 h-12 rounded-2xl bg-slate-50 border-none font-bold" />
               </div>
-
               <div className="grid gap-4">
                 {filteredUsers.map((user) => (
                   <div key={user.id} className="flex flex-col md:flex-row items-center justify-between p-6 bg-slate-50 rounded-3xl gap-4">
@@ -246,10 +297,7 @@ const Admin = () => {
                       </div>
                     </button>
                     <div className="flex items-center gap-3 w-full md:w-auto">
-                      <button 
-                        onClick={() => updateMembership(user.id, user.subscription_status === 'Ativo' ? 'Inativo' : 'Ativo')}
-                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase transition-all ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}
-                      >
+                      <button onClick={() => updateField(user.id, 'subscription_status', user.subscription_status === 'Ativo' ? 'Inativo' : 'Ativo')} className={`px-4 py-2 rounded-full text-[10px] font-black uppercase transition-all ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                         {user.subscription_status === 'Ativo' ? 'ATIVO' : 'INATIVO'}
                       </button>
                       <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest">
@@ -261,81 +309,14 @@ const Admin = () => {
               </div>
             </div>
           </TabsContent>
-
-          <TabsContent value="financeiro" className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <button 
-                onClick={() => { setPaymentFilter('all'); setStatusFilter('all'); }}
-                className={`p-8 rounded-[2.5rem] shadow-xl border text-left transition-all duration-300 ${paymentFilter === 'all' ? 'bg-white border-primary ring-4 ring-primary/5 scale-[1.02]' : 'bg-white border-slate-100 hover:border-primary/30'}`}
-              >
-                <TrendingUp className="text-blue-600 mb-4" size={24} />
-                <p className="text-[10px] font-black uppercase text-slate-400">Total Previsto</p>
-                <p className="text-3xl font-black text-slate-800">{formatCurrency(totalPrevisto)}</p>
-              </button>
-              
-              <button 
-                onClick={() => { setPaymentFilter('Pago'); setStatusFilter('all'); }}
-                className={`p-8 rounded-[2.5rem] shadow-xl border text-left transition-all duration-300 ${paymentFilter === 'Pago' ? 'bg-white border-green-500 ring-4 ring-green-500/5 scale-[1.02]' : 'bg-white border-slate-100 hover:border-green-500/30'}`}
-              >
-                <Wallet className="text-green-600 mb-4" size={24} />
-                <p className="text-[10px] font-black uppercase text-slate-400">Recebidos</p>
-                <p className="text-3xl font-black text-green-600">{formatCurrency(totalRecebido)}</p>
-              </button>
-              
-              <button 
-                onClick={() => { setPaymentFilter('Pendente'); setStatusFilter('all'); }}
-                className={`p-8 rounded-[2.5rem] shadow-xl border text-left transition-all duration-300 ${paymentFilter === 'Pendente' ? 'bg-white border-red-500 ring-4 ring-red-500/5 scale-[1.02]' : 'bg-white border-slate-100 hover:border-red-500/30'}`}
-              >
-                <AlertCircle className="text-red-600 mb-4" size={24} />
-                <p className="text-[10px] font-black uppercase text-slate-400">Pendentes</p>
-                <p className="text-3xl font-black text-red-600">{formatCurrency(totalPendente)}</p>
-              </button>
-            </div>
-
-            <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
-              <h2 className="text-2xl font-black text-slate-800 mb-8">Controle de Mensalidades</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
-                      <th className="pb-4">Aluno</th>
-                      <th className="pb-4">Valor (R$)</th>
-                      <th className="pb-4">Status Pagamento</th>
-                      <th className="pb-4">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {filteredUsers.map((user) => (
-                      <tr key={user.id}>
-                        <td className="py-4 font-bold text-slate-700">{user.full_name || user.email}</td>
-                        <td className="py-4">
-                          <div className="w-32">
-                            <CurrencyInput initialValue={user.monthly_fee || 0} onSave={(val) => updateMonthlyFee(user.id, val)} />
-                          </div>
-                        </td>
-                        <td className="py-4">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${user.payment_status === 'Pago' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                            {user.payment_status === 'Pago' ? 'PAGO' : 'PENDENTE'}
-                          </span>
-                        </td>
-                        <td className="py-4">
-                          <div className="flex gap-2">
-                            <Button size="sm" variant={user.payment_status === 'Pago' ? 'default' : 'outline'} onClick={() => updatePayment(user.id, 'Pago')} className="rounded-lg text-[10px] font-black h-9 px-4">PAGO</Button>
-                            <Button size="sm" variant={user.payment_status === 'Pendente' ? 'destructive' : 'outline'} onClick={() => updatePayment(user.id, 'Pendente')} className="rounded-lg text-[10px] font-black h-9 px-4">PENDENTE</Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </TabsContent>
         </Tabs>
       </main>
 
-      <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={handleSaveExercise} />
-      <StudentDialog isOpen={isStudentDialogOpen} onClose={() => setIsStudentDialogOpen(false)} onSave={async (d) => {}} />
+      <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={async (ex) => {
+        const { error } = await supabase.from('exercises').insert([{ ...ex, user_id: selectedUser.id, workout_type: 'A' }]);
+        if (!error) { showSuccess("Treino adicionado!"); setIsExerciseDialogOpen(false); }
+      }} />
+      <StudentDialog isOpen={isStudentDialogOpen} onClose={() => setIsStudentDialogOpen(false)} onSave={async (d) => { fetchData(); }} />
       <StudentDetailsSheet student={viewingUser} isOpen={!!viewingUser} onClose={() => setViewingUser(null)} />
     </div>
   );
