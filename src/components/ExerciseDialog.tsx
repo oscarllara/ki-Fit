@@ -54,16 +54,16 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
     setTitle(capitalized);
 
     if (val.length > 2) {
-      // Busca exercícios globais para sugerir
+      // Busca exercícios em todo o banco de dados para sugerir
       const { data } = await supabase
         .from('exercises')
         .select('title, video_url')
         .ilike('title', `%${val}%`)
-        .limit(5);
+        .limit(10);
       
-      // Filtrar duplicatas por título para não poluir a lista
+      // Filtrar duplicatas por título
       const unique = data?.reduce((acc: any[], current: any) => {
-        const x = acc.find(item => item.title === current.title);
+        const x = acc.find(item => item.title.toLowerCase() === current.title.toLowerCase());
         if (!x) return acc.concat([current]);
         return acc;
       }, []);

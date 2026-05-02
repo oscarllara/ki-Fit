@@ -56,11 +56,8 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Filtros
   const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'Pago' | 'Pendente'>('all');
-  
   const [activeTab, setActiveTab] = useState('alunos');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [viewingUser, setViewingUser] = useState<any>(null);
@@ -107,38 +104,56 @@ const Admin = () => {
   };
 
   const updateMembership = async (userId: string, status: string) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, subscription_status: status } : u));
     const { error } = await supabase.from('profiles').update({ subscription_status: status }).eq('id', userId);
-    if (error) fetchData();
-    else showSuccess(`Matrícula ${status === 'Ativo' ? 'Ativada' : 'Inativada'}`);
+    if (!error) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, subscription_status: status } : u));
+      showSuccess(`Matrícula ${status === 'Ativo' ? 'Ativada' : 'Inativada'}`);
+    }
   };
 
   const updatePayment = async (userId: string, status: string) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, payment_status: status } : u));
-    const { error } = await supabase.from('profiles').update({ payment_status: status }).eq('id', userId);
-    if (error) fetchData();
-    else showSuccess(status === 'Pago' ? "Pagamento Confirmado!" : "Pagamento Pendente!");
+    const updateData: any = { payment_status: status };
+    if (status === 'Pago') updateData.updated_at = new Date().toISOString();
+
+    const { error } = await supabase.from('profiles').update(updateData).eq('id', userId);
+    if (!error) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updateData } : u));
+      showSuccess(status === 'Pago' ? "Pagamento Confirmado!" : "Pagamento Pendente!");
+    }
   };
 
   const updateMonthlyFee = async (userId: string, val: number) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, monthly_fee: val } : u));
     const { error } = await supabase.from('profiles').update({ monthly_fee: val }).eq('id', userId);
-    if (error) {
-      showError("Erro ao salvar valor");
-      fetchData();
-    } else {
+    if (!error) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, monthly_fee: val } : u));
       showSuccess("Valor atualizado!");
+    }
+  };
+
+  const handleSaveExercise = async (exercise: any) => {
+    if (!selectedUser) return;
+    
+    const exerciseData = {
+      title: exercise.title,
+      name: exercise.title,
+      video_url: exercise.videoUrl,
+      default_reps: exercise.defaultReps,
+      default_weight: exercise.defaultWeight,
+      user_id: selectedUser.id,
+      workout_type: 'A' // Padrão para admin
+    };
+
+    const { error } = await supabase.from('exercises').insert([exerciseData]);
+    if (!error) {
+      showSuccess(`Treino adicionado para ${selectedUser.full_name}`);
+      setIsExerciseDialogOpen(false);
+    } else {
+      showError("Erro ao salvar treino");
     }
   };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
-
-  const clearFilters = () => {
-    setStatusFilter('all');
-    setPaymentFilter('all');
-    setSearchTerm('');
   };
 
   const filteredUsers = users.filter(u => {
@@ -210,7 +225,7 @@ const Admin = () => {
                 <div className="flex items-center gap-4">
                   <h2 className="text-2xl font-black text-slate-800">Gestão de Alunos</h2>
                   {(statusFilter !== 'all' || paymentFilter !== 'all' || searchTerm) && (
-                    <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5">
+                    <Button variant="ghost" size="sm" onClick={() => { setStatusFilter('all'); setPaymentFilter('all'); setSearchTerm(''); }} className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5">
                       <X size={14} className="mr-1" /> Limpar Filtros
                     </Button>
                   )}
@@ -243,9 +258,6 @@ const Admin = () => {
                     </div>
                   </div>
                 ))}
-                {filteredUsers.length === 0 && (
-                  <div className="py-12 text-center text-slate-400 font-bold">Nenhum aluno encontrado com estes filtros.</div>
-                )}
               </div>
             </div>
           </TabsContent>
@@ -281,14 +293,7 @@ const Admin = () => {
             </div>
 
             <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-black text-slate-800">Controle de Mensalidades</h2>
-                {(statusFilter !== 'all' || paymentFilter !== 'all' || searchTerm) && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[10px] font-black uppercase tracking-widest text-primary">
-                    Ver Todos
-                  </Button>
-                )}
-              </div>
+              <h2 className="text-2xl font-black text-slate-800 mb-8">Controle de Mensalidades</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
@@ -323,16 +328,13 @@ const Admin = () => {
                     ))}
                   </tbody>
                 </table>
-                {filteredUsers.length === 0 && (
-                  <div className="py-12 text-center text-slate-400 font-bold">Nenhum registro financeiro encontrado com estes filtros.</div>
-                )}
               </div>
             </div>
           </TabsContent>
         </Tabs>
       </main>
 
-      <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={(ex) => {}} />
+      <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={handleSaveExercise} />
       <StudentDialog isOpen={isStudentDialogOpen} onClose={() => setIsStudentDialogOpen(false)} onSave={async (d) => {}} />
       <StudentDetailsSheet student={viewingUser} isOpen={!!viewingUser} onClose={() => setViewingUser(null)} />
     </div>
