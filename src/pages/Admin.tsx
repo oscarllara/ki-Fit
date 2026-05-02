@@ -106,14 +106,18 @@ const Admin = () => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, subscription_status: status } : u));
     const { error } = await supabase.from('profiles').update({ subscription_status: status }).eq('id', userId);
     if (error) fetchData();
-    else showSuccess(`Aluno ${status === 'Ativo' ? 'Ativado' : 'Inativado'}`);
+    else showSuccess(`Matrícula ${status === 'Ativo' ? 'Ativada' : 'Inativada'}`);
   };
 
   const updatePayment = async (userId: string, status: string) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, payment_status: status } : u));
     const { error } = await supabase.from('profiles').update({ payment_status: status }).eq('id', userId);
-    if (error) fetchData();
-    else showSuccess(status === 'Pago' ? "Pagamento Confirmado!" : "Pagamento Pendente!");
+    if (error) {
+      showError("Erro ao atualizar pagamento");
+      fetchData();
+    } else {
+      showSuccess(status === 'Pago' ? "Pagamento Confirmado!" : "Pagamento Pendente!");
+    }
   };
 
   const updateMonthlyFee = async (userId: string, val: number) => {
