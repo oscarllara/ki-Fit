@@ -15,30 +15,42 @@ import StudentDialog from '@/components/StudentDialog';
 import StudentDetailsSheet from '@/components/StudentDetailsSheet';
 import { showSuccess, showError } from '@/utils/toast';
 
-// Componente interno para gerenciar o input de moeda com formatação automática
+// Componente de Moeda Refinado
 const CurrencyInput = ({ initialValue, onSave }: { initialValue: number, onSave: (val: number) => void }) => {
-  const [displayValue, setDisplayValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const [localValue, setLocalValue] = useState('');
 
+  // Sincroniza com o valor inicial apenas quando NÃO está focado
   useEffect(() => {
-    setDisplayValue((initialValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-  }, [initialValue]);
+    if (!isFocused) {
+      setLocalValue((initialValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    }
+  }, [initialValue, isFocused]);
 
   const handleBlur = () => {
-    const cleanValue = displayValue.replace(/\s/g, '').replace('.', '').replace(',', '.');
+    setIsFocused(false);
+    // Limpa pontos de milhar e troca vírgula por ponto para o banco de dados
+    const cleanValue = localValue.replace(/\./g, '').replace(',', '.');
     const numericValue = parseFloat(cleanValue);
+    
     if (!isNaN(numericValue)) {
       onSave(numericValue);
-      setDisplayValue(numericValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+      // A formatação visual (75,00) será aplicada pelo useEffect após o salvamento
+    } else {
+      // Se for inválido, volta para o valor original formatado
+      setLocalValue((initialValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     }
   };
 
   return (
     <Input 
-      value={displayValue}
-      onChange={(e) => setDisplayValue(e.target.value)}
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onFocus={() => setIsFocused(true)}
       onBlur={handleBlur}
-      onKeyDown={(e) => e.key === 'Enter' && handleBlur()}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       className="h-10 rounded-xl bg-slate-50 border-none font-black text-slate-800 focus:bg-white focus:ring-2 focus:ring-primary/20"
+      placeholder="0,00"
     />
   );
 };
@@ -140,10 +152,13 @@ const Admin = () => {
   };
 
   const updateMonthlyFee = async (userId: string, val: number) => {
+    // Atualização Otimista para os cards do topo
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, monthly_fee: val } : u));
+    
     const { error } = await supabase.from('profiles').update({ 
       monthly_fee: val
     }).eq('id', userId);
+    
     if (error) {
       showError("Erro ao atualizar valor");
       fetchData();
