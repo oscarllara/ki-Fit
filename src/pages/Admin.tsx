@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
   Users, ShieldCheck, ArrowLeft, Plus, 
-  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw
+  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw, X
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +56,11 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filtros
   const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all');
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'Pago' | 'Pendente'>('all');
+  
   const [activeTab, setActiveTab] = useState('alunos');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [viewingUser, setViewingUser] = useState<any>(null);
@@ -112,12 +116,8 @@ const Admin = () => {
   const updatePayment = async (userId: string, status: string) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, payment_status: status } : u));
     const { error } = await supabase.from('profiles').update({ payment_status: status }).eq('id', userId);
-    if (error) {
-      showError("Erro ao atualizar pagamento");
-      fetchData();
-    } else {
-      showSuccess(status === 'Pago' ? "Pagamento Confirmado!" : "Pagamento Pendente!");
-    }
+    if (error) fetchData();
+    else showSuccess(status === 'Pago' ? "Pagamento Confirmado!" : "Pagamento Pendente!");
   };
 
   const updateMonthlyFee = async (userId: string, val: number) => {
@@ -135,10 +135,17 @@ const Admin = () => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
 
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setPaymentFilter('all');
+    setSearchTerm('');
+  };
+
   const filteredUsers = users.filter(u => {
     const matchesSearch = (u.full_name || u.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' ? true : (u.subscription_status || 'Inativo') === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesPayment = paymentFilter === 'all' ? true : (u.payment_status || 'Pendente') === paymentFilter;
+    return matchesSearch && matchesStatus && matchesPayment;
   });
 
   const totalPrevisto = users.reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
@@ -169,16 +176,23 @@ const Admin = () => {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-6 rounded-[2rem] border bg-white/5 border-white/10 text-left">
-              <Users className="text-primary mb-2" size={20} />
+            <button 
+              onClick={() => { setStatusFilter('all'); setPaymentFilter('all'); setActiveTab('alunos'); }}
+              className={`p-6 rounded-[2rem] border text-left transition-all duration-300 ${statusFilter === 'all' && paymentFilter === 'all' ? 'bg-primary border-primary shadow-xl shadow-primary/20 scale-[1.02]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+            >
+              <Users className={`${statusFilter === 'all' && paymentFilter === 'all' ? 'text-white' : 'text-primary'} mb-2`} size={20} />
               <p className="text-[10px] font-black uppercase text-slate-400">Total Alunos</p>
               <p className="text-2xl md:text-3xl font-black">{users.length}</p>
-            </div>
-            <div className="p-6 rounded-[2rem] border bg-white/5 border-white/10 text-left">
-              <CheckCircle2 className="text-green-400 mb-2" size={20} />
+            </button>
+            
+            <button 
+              onClick={() => { setStatusFilter('Ativo'); setPaymentFilter('all'); setActiveTab('alunos'); }}
+              className={`p-6 rounded-[2rem] border text-left transition-all duration-300 ${statusFilter === 'Ativo' ? 'bg-green-500 border-green-500 shadow-xl shadow-green-500/20 scale-[1.02]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+            >
+              <CheckCircle2 className={`${statusFilter === 'Ativo' ? 'text-white' : 'text-green-400'} mb-2`} size={20} />
               <p className="text-[10px] font-black uppercase text-slate-400">Ativos</p>
               <p className="text-2xl md:text-3xl font-black">{users.filter(u => u.subscription_status === 'Ativo').length}</p>
-            </div>
+            </button>
           </div>
         </div>
       </header>
@@ -193,7 +207,14 @@ const Admin = () => {
           <TabsContent value="alunos" className="space-y-6">
             <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
               <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                <h2 className="text-2xl font-black text-slate-800">Gestão de Alunos</h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-black text-slate-800">Gestão de Alunos</h2>
+                  {(statusFilter !== 'all' || paymentFilter !== 'all' || searchTerm) && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5">
+                      <X size={14} className="mr-1" /> Limpar Filtros
+                    </Button>
+                  )}
+                </div>
                 <Input placeholder="Buscar aluno..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-72 h-12 rounded-2xl bg-slate-50 border-none font-bold" />
               </div>
 
@@ -222,31 +243,52 @@ const Admin = () => {
                     </div>
                   </div>
                 ))}
+                {filteredUsers.length === 0 && (
+                  <div className="py-12 text-center text-slate-400 font-bold">Nenhum aluno encontrado com estes filtros.</div>
+                )}
               </div>
             </div>
           </TabsContent>
 
           <TabsContent value="financeiro" className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-8 rounded-[2.5rem] shadow-xl border bg-white border-slate-100">
+              <button 
+                onClick={() => { setPaymentFilter('all'); setStatusFilter('all'); }}
+                className={`p-8 rounded-[2.5rem] shadow-xl border text-left transition-all duration-300 ${paymentFilter === 'all' ? 'bg-white border-primary ring-4 ring-primary/5 scale-[1.02]' : 'bg-white border-slate-100 hover:border-primary/30'}`}
+              >
                 <TrendingUp className="text-blue-600 mb-4" size={24} />
                 <p className="text-[10px] font-black uppercase text-slate-400">Total Previsto</p>
                 <p className="text-3xl font-black text-slate-800">{formatCurrency(totalPrevisto)}</p>
-              </div>
-              <div className="p-8 rounded-[2.5rem] shadow-xl border bg-white border-slate-100">
+              </button>
+              
+              <button 
+                onClick={() => { setPaymentFilter('Pago'); setStatusFilter('all'); }}
+                className={`p-8 rounded-[2.5rem] shadow-xl border text-left transition-all duration-300 ${paymentFilter === 'Pago' ? 'bg-white border-green-500 ring-4 ring-green-500/5 scale-[1.02]' : 'bg-white border-slate-100 hover:border-green-500/30'}`}
+              >
                 <Wallet className="text-green-600 mb-4" size={24} />
                 <p className="text-[10px] font-black uppercase text-slate-400">Recebidos</p>
                 <p className="text-3xl font-black text-green-600">{formatCurrency(totalRecebido)}</p>
-              </div>
-              <div className="p-8 rounded-[2.5rem] shadow-xl border bg-white border-slate-100">
+              </button>
+              
+              <button 
+                onClick={() => { setPaymentFilter('Pendente'); setStatusFilter('all'); }}
+                className={`p-8 rounded-[2.5rem] shadow-xl border text-left transition-all duration-300 ${paymentFilter === 'Pendente' ? 'bg-white border-red-500 ring-4 ring-red-500/5 scale-[1.02]' : 'bg-white border-slate-100 hover:border-red-500/30'}`}
+              >
                 <AlertCircle className="text-red-600 mb-4" size={24} />
                 <p className="text-[10px] font-black uppercase text-slate-400">Pendentes</p>
                 <p className="text-3xl font-black text-red-600">{formatCurrency(totalPendente)}</p>
-              </div>
+              </button>
             </div>
 
             <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
-              <h2 className="text-2xl font-black text-slate-800 mb-8">Controle de Mensalidades</h2>
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-black text-slate-800">Controle de Mensalidades</h2>
+                {(statusFilter !== 'all' || paymentFilter !== 'all' || searchTerm) && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[10px] font-black uppercase tracking-widest text-primary">
+                    Ver Todos
+                  </Button>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
@@ -281,6 +323,9 @@ const Admin = () => {
                     ))}
                   </tbody>
                 </table>
+                {filteredUsers.length === 0 && (
+                  <div className="py-12 text-center text-slate-400 font-bold">Nenhum registro financeiro encontrado com estes filtros.</div>
+                )}
               </div>
             </div>
           </TabsContent>
