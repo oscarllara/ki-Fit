@@ -19,6 +19,7 @@ const Admin = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
@@ -91,6 +92,10 @@ const Admin = () => {
   const filteredUsers = users.filter(u => 
     (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const tableUsers = filteredUsers.filter(u => 
+    statusFilter === 'all' ? true : (u.subscription_status || 'Inativo') === statusFilter
   );
 
   const totalPrevisto = users.reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
@@ -175,31 +180,49 @@ const Admin = () => {
 
           <TabsContent value="financeiro" className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                <div className="bg-blue-50 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                  <TrendingUp className="text-blue-600" size={24} />
+              <button 
+                onClick={() => setStatusFilter('all')}
+                className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all hover:scale-[1.02] text-left group ${statusFilter === 'all' ? 'border-primary ring-2 ring-primary/20' : 'border-slate-100'}`}
+              >
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors ${statusFilter === 'all' ? 'bg-primary text-white' : 'bg-blue-50 text-blue-600 group-hover:bg-primary group-hover:text-white'}`}>
+                  <TrendingUp size={24} />
                 </div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Previsto</p>
                 <p className="text-3xl font-black text-slate-800">R$ {totalPrevisto.toFixed(2)}</p>
-              </div>
-              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                <div className="bg-green-50 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                  <Wallet className="text-green-600" size={24} />
+              </button>
+
+              <button 
+                onClick={() => setStatusFilter('Ativo')}
+                className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all hover:scale-[1.02] text-left group ${statusFilter === 'Ativo' ? 'border-green-500 ring-2 ring-green-500/20' : 'border-slate-100'}`}
+              >
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors ${statusFilter === 'Ativo' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white'}`}>
+                  <Wallet size={24} />
                 </div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valores Recebidos</p>
                 <p className="text-3xl font-black text-green-600">R$ {totalRecebido.toFixed(2)}</p>
-              </div>
-              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                <div className="bg-red-50 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
-                  <AlertCircle className="text-red-600" size={24} />
+              </button>
+
+              <button 
+                onClick={() => setStatusFilter('Inativo')}
+                className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all hover:scale-[1.02] text-left group ${statusFilter === 'Inativo' ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-100'}`}
+              >
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors ${statusFilter === 'Inativo' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+                  <AlertCircle size={24} />
                 </div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valores Pendentes</p>
                 <p className="text-3xl font-black text-red-600">R$ {totalPendente.toFixed(2)}</p>
-              </div>
+              </button>
             </div>
 
             <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
-              <h2 className="text-2xl font-black text-slate-800 mb-8">Controle de Mensalidades</h2>
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-black text-slate-800">Controle de Mensalidades</h2>
+                {statusFilter !== 'all' && (
+                  <Button variant="ghost" onClick={() => setStatusFilter('all')} className="text-[10px] font-black uppercase tracking-widest text-primary">
+                    Limpar Filtro
+                  </Button>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
@@ -211,7 +234,7 @@ const Admin = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {filteredUsers.map((user) => (
+                    {tableUsers.map((user) => (
                       <tr key={user.id} className="group">
                         <td className="py-4 font-bold text-slate-700">{user.full_name}</td>
                         <td className="py-4 font-black text-slate-800">R$ {Number(user.monthly_fee || 0).toFixed(2)}</td>
@@ -228,6 +251,11 @@ const Admin = () => {
                         </td>
                       </tr>
                     ))}
+                    {tableUsers.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-12 text-center text-slate-400 font-bold">Nenhum aluno encontrado com este status.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
