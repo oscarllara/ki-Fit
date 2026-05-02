@@ -37,8 +37,17 @@ const Admin = () => {
   }, [navigate]);
 
   const fetchData = async () => {
-    const { data, error } = await supabase.from('profiles').select('*');
-    if (!error) setUsers(data || []);
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .neq('email', 'admin@admin.com'); // Não listar o próprio admin como aluno
+    
+    if (!error) {
+      setUsers(data || []);
+    } else {
+      showError("Erro ao carregar dados: " + error.message);
+    }
     setLoading(false);
   };
 
@@ -158,22 +167,28 @@ const Admin = () => {
               </div>
 
               <div className="grid gap-4">
-                {filteredUsers.map((user) => (
-                  <div key={user.id} className="flex flex-col md:flex-row items-center justify-between p-6 bg-slate-50 rounded-3xl gap-4">
-                    <div className="flex items-center gap-4 w-full md:w-auto">
-                      <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-xl overflow-hidden">
-                        {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" /> : user.full_name?.charAt(0)}
+                {loading ? (
+                  <div className="py-20 text-center text-slate-400 font-bold">Carregando alunos...</div>
+                ) : filteredUsers.length > 0 ? (
+                  filteredUsers.map((user) => (
+                    <div key={user.id} className="flex flex-col md:flex-row items-center justify-between p-6 bg-slate-50 rounded-3xl gap-4">
+                      <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-xl overflow-hidden">
+                          {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" /> : user.full_name?.charAt(0)}
+                        </div>
+                        <div>
+                          <h3 className="font-black text-slate-800">{user.full_name}</h3>
+                          <p className="text-xs font-bold text-slate-400">{user.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-black text-slate-800">{user.full_name}</h3>
-                        <p className="text-xs font-bold text-slate-400">{user.email}</p>
-                      </div>
+                      <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest w-full md:w-auto">
+                        <Plus size={14} className="mr-2" /> Add Treino
+                      </Button>
                     </div>
-                    <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest w-full md:w-auto">
-                      <Plus size={14} className="mr-2" /> Add Treino
-                    </Button>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="py-20 text-center text-slate-400 font-bold">Nenhum aluno cadastrado.</div>
+                )}
               </div>
             </div>
           </TabsContent>
