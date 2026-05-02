@@ -103,20 +103,31 @@ const Admin = () => {
       subscription_status: status
     }).eq('id', userId);
     if (!error) {
-      showSuccess("Status atualizado!");
+      showSuccess(status === 'Ativo' ? "Pagamento confirmado!" : "Status pendente!");
       fetchData();
     }
   };
 
   const updateMonthlyFee = async (userId: string, fee: string) => {
-    const val = parseFloat(fee.replace(',', '.'));
+    // Converte formato brasileiro (0,00) para número
+    const cleanValue = fee.replace('R$', '').replace(/\s/g, '').replace('.', '').replace(',', '.');
+    const val = parseFloat(cleanValue);
+    
     const { error } = await supabase.from('profiles').update({ 
       monthly_fee: isNaN(val) ? 0 : val
     }).eq('id', userId);
+    
     if (!error) {
       showSuccess("Valor atualizado!");
       fetchData();
     }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value || 0);
   };
 
   const applyFilter = (filter: 'all' | 'Ativo' | 'Inativo', tab?: string) => {
@@ -231,9 +242,12 @@ const Admin = () => {
                         </div>
                       </button>
                       <div className="flex items-center gap-3 w-full md:w-auto">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        <button 
+                          onClick={() => updateFinance(user.id, user.subscription_status === 'Ativo' ? 'Inativo' : 'Ativo')}
+                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all hover:scale-105 ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}
+                        >
                           {user.subscription_status || 'Inativo'}
-                        </span>
+                        </button>
                         <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest flex-1 md:flex-none">
                           <Plus size={14} className="mr-2" /> Add Treino
                         </Button>
@@ -255,7 +269,7 @@ const Admin = () => {
               >
                 <TrendingUp className="text-blue-600 mb-4" size={24} />
                 <p className="text-[10px] font-black uppercase text-slate-400">Total Previsto</p>
-                <p className="text-3xl font-black text-slate-800">R$ {totalPrevisto.toFixed(2)}</p>
+                <p className="text-3xl font-black text-slate-800">{formatCurrency(totalPrevisto)}</p>
               </button>
               <button 
                 onClick={() => applyFilter('Ativo')} 
@@ -263,7 +277,7 @@ const Admin = () => {
               >
                 <Wallet className="text-green-600 mb-4" size={24} />
                 <p className="text-[10px] font-black uppercase text-slate-400">Recebidos</p>
-                <p className="text-3xl font-black text-green-600">R$ {totalRecebido.toFixed(2)}</p>
+                <p className="text-3xl font-black text-green-600">{formatCurrency(totalRecebido)}</p>
               </button>
               <button 
                 onClick={() => applyFilter('Inativo')} 
@@ -271,7 +285,7 @@ const Admin = () => {
               >
                 <AlertCircle className="text-red-600 mb-4" size={24} />
                 <p className="text-[10px] font-black uppercase text-slate-400">Pendentes</p>
-                <p className="text-3xl font-black text-red-600">R$ {totalPendente.toFixed(2)}</p>
+                <p className="text-3xl font-black text-red-600">{formatCurrency(totalPendente)}</p>
               </button>
             </div>
 
@@ -303,9 +317,9 @@ const Admin = () => {
                           </button>
                         </td>
                         <td className="py-4">
-                          <div className="relative w-24">
+                          <div className="relative w-32">
                             <Input 
-                              defaultValue={user.monthly_fee || 0}
+                              defaultValue={(user.monthly_fee || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               onBlur={(e) => updateMonthlyFee(user.id, e.target.value)}
                               onKeyDown={(e) => e.key === 'Enter' && updateMonthlyFee(user.id, (e.target as HTMLInputElement).value)}
                               className="h-10 rounded-xl bg-slate-50 border-none font-black text-slate-800 focus:bg-white focus:ring-2 focus:ring-primary/20"
@@ -313,9 +327,12 @@ const Admin = () => {
                           </div>
                         </td>
                         <td className="py-4">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                          <button 
+                            onClick={() => updateFinance(user.id, user.subscription_status === 'Ativo' ? 'Inativo' : 'Ativo')}
+                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all hover:scale-105 ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}
+                          >
                             {user.subscription_status || 'Inativo'}
-                          </span>
+                          </button>
                         </td>
                         <td className="py-4">
                           <div className="flex gap-2">
