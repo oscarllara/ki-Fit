@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
   Users, ShieldCheck, ArrowLeft, Plus, 
-  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus
+  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ const Admin = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all');
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -41,14 +42,26 @@ const Admin = () => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .neq('email', 'admin@admin.com'); // Não listar o próprio admin como aluno
+      .neq('email', 'admin@admin.com');
     
     if (!error) {
       setUsers(data || []);
-    } else {
-      showError("Erro ao carregar dados: " + error.message);
     }
     setLoading(false);
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-profiles');
+      if (error) throw error;
+      showSuccess(`${data.synced} perfis sincronizados!`);
+      fetchData();
+    } catch (err: any) {
+      showError("Erro na sincronização: " + err.message);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleCreateStudent = async (formData: any) => {
@@ -56,13 +69,11 @@ const Admin = () => {
       const { data, error } = await supabase.functions.invoke('create-student', {
         body: formData
       });
-
       if (error || data?.error) throw new Error(error?.message || data?.error);
-
-      showSuccess(`Aluno ${formData.full_name} cadastrado com sucesso!`);
+      showSuccess(`Aluno ${formData.full_name} cadastrado!`);
       fetchData();
     } catch (err: any) {
-      showError("Erro ao cadastrar: " + err.message);
+      showError("Erro: " + err.message);
       throw err;
     }
   };
@@ -78,12 +89,9 @@ const Admin = () => {
       user_id: selectedUser.id,
       workout_type: 'A'
     }]);
-
     if (!error) {
-      showSuccess(`Exercício adicionado para ${selectedUser.full_name}`);
+      showSuccess(`Exercício adicionado!`);
       fetchData();
-    } else {
-      showError(error.message);
     }
   };
 
@@ -91,16 +99,14 @@ const Admin = () => {
     const { error } = await supabase.from('profiles').update({ 
       subscription_status: status
     }).eq('id', userId);
-    
     if (!error) {
-      showSuccess("Status financeiro atualizado!");
+      showSuccess("Status atualizado!");
       fetchData();
     }
   };
 
   const filteredUsers = users.filter(u => 
-    (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (u.full_name || u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const tableUsers = filteredUsers.filter(u => 
@@ -124,12 +130,22 @@ const Admin = () => {
                 Gestão Ki-Fit <ShieldCheck className="text-primary" />
               </h1>
             </div>
-            <Button 
-              onClick={() => setIsStudentDialogOpen(true)}
-              className="bg-primary hover:bg-primary/90 text-white rounded-2xl font-black text-xs uppercase tracking-widest h-12 px-6 shadow-lg shadow-primary/20"
-            >
-              <UserPlus size={18} className="mr-2" /> Novo Aluno
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline"
+                onClick={handleSync}
+                disabled={syncing}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-2xl font-black text-[10px] uppercase tracking-widest h-12 px-4"
+              >
+                <RefreshCw size={16} className={`mr-2 ${syncing ? 'animate-spin' : ''}`} /> Sincronizar
+              </Button>
+              <Button 
+                onClick={() => setIsStudentDialogOpen(true)}
+                className="bg-primary hover:bg-primary/90 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest h-12 px-6 shadow-lg shadow-primary/20"
+              >
+                <UserPlus size={18} className="mr-2" /> Novo Aluno
+              </Button>
+            </div>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -159,7 +175,7 @@ const Admin = () => {
               <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <h2 className="text-2xl font-black text-slate-800">Gestão de Alunos</h2>
                 <Input 
-                  placeholder="Buscar aluno..." 
+                  placeholder="Buscar por nome ou e-mail..." 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full md:w-72 h-12 rounded-2xl bg-slate-50 border-none font-bold"
@@ -168,17 +184,17 @@ const Admin = () => {
 
               <div className="grid gap-4">
                 {loading ? (
-                  <div className="py-20 text-center text-slate-400 font-bold">Carregando alunos...</div>
+                  <div className="py-20 text-center text-slate-400 font-bold">Carregando...</div>
                 ) : filteredUsers.length > 0 ? (
                   filteredUsers.map((user) => (
                     <div key={user.id} className="flex flex-col md:flex-row items-center justify-between p-6 bg-slate-50 rounded-3xl gap-4">
                       <div className="flex items-center gap-4 w-full md:w-auto">
                         <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-xl overflow-hidden">
-                          {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" /> : user.full_name?.charAt(0)}
+                          {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" /> : (user.full_name?.charAt(0) || '?')}
                         </div>
                         <div>
-                          <h3 className="font-black text-slate-800">{user.full_name}</h3>
-                          <p className="text-xs font-bold text-slate-400">{user.email}</p>
+                          <h3 className="font-black text-slate-800">{user.full_name || 'Usuário sem nome'}</h3>
+                          <p className="text-xs font-bold text-slate-400">{user.email || 'E-mail não sincronizado'}</p>
                         </div>
                       </div>
                       <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest w-full md:w-auto">
@@ -187,7 +203,7 @@ const Admin = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="py-20 text-center text-slate-400 font-bold">Nenhum aluno cadastrado.</div>
+                  <div className="py-20 text-center text-slate-400 font-bold">Nenhum aluno encontrado.</div>
                 )}
               </div>
             </div>
@@ -195,49 +211,25 @@ const Admin = () => {
 
           <TabsContent value="financeiro" className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <button 
-                onClick={() => setStatusFilter('all')}
-                className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all hover:scale-[1.02] text-left group ${statusFilter === 'all' ? 'border-primary ring-2 ring-primary/20' : 'border-slate-100'}`}
-              >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors ${statusFilter === 'all' ? 'bg-primary text-white' : 'bg-blue-50 text-blue-600 group-hover:bg-primary group-hover:text-white'}`}>
-                  <TrendingUp size={24} />
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Previsto</p>
+              <button onClick={() => setStatusFilter('all')} className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all ${statusFilter === 'all' ? 'border-primary ring-2 ring-primary/20' : 'border-slate-100'}`}>
+                <TrendingUp className="text-blue-600 mb-4" size={24} />
+                <p className="text-[10px] font-black uppercase text-slate-400">Total Previsto</p>
                 <p className="text-3xl font-black text-slate-800">R$ {totalPrevisto.toFixed(2)}</p>
               </button>
-
-              <button 
-                onClick={() => setStatusFilter('Ativo')}
-                className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all hover:scale-[1.02] text-left group ${statusFilter === 'Ativo' ? 'border-green-500 ring-2 ring-green-500/20' : 'border-slate-100'}`}
-              >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors ${statusFilter === 'Ativo' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white'}`}>
-                  <Wallet size={24} />
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valores Recebidos</p>
+              <button onClick={() => setStatusFilter('Ativo')} className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all ${statusFilter === 'Ativo' ? 'border-green-500 ring-2 ring-green-500/20' : 'border-slate-100'}`}>
+                <Wallet className="text-green-600 mb-4" size={24} />
+                <p className="text-[10px] font-black uppercase text-slate-400">Recebidos</p>
                 <p className="text-3xl font-black text-green-600">R$ {totalRecebido.toFixed(2)}</p>
               </button>
-
-              <button 
-                onClick={() => setStatusFilter('Inativo')}
-                className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all hover:scale-[1.02] text-left group ${statusFilter === 'Inativo' ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-100'}`}
-              >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors ${statusFilter === 'Inativo' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600 group-hover:bg-red-600 group-hover:text-white'}`}>
-                  <AlertCircle size={24} />
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valores Pendentes</p>
+              <button onClick={() => setStatusFilter('Inativo')} className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all ${statusFilter === 'Inativo' ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-100'}`}>
+                <AlertCircle className="text-red-600 mb-4" size={24} />
+                <p className="text-[10px] font-black uppercase text-slate-400">Pendentes</p>
                 <p className="text-3xl font-black text-red-600">R$ {totalPendente.toFixed(2)}</p>
               </button>
             </div>
 
             <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-black text-slate-800">Controle de Mensalidades</h2>
-                {statusFilter !== 'all' && (
-                  <Button variant="ghost" onClick={() => setStatusFilter('all')} className="text-[10px] font-black uppercase tracking-widest text-primary">
-                    Limpar Filtro
-                  </Button>
-                )}
-              </div>
+              <h2 className="text-2xl font-black text-slate-800 mb-8">Controle de Mensalidades</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
@@ -250,8 +242,8 @@ const Admin = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {tableUsers.map((user) => (
-                      <tr key={user.id} className="group">
-                        <td className="py-4 font-bold text-slate-700">{user.full_name}</td>
+                      <tr key={user.id}>
+                        <td className="py-4 font-bold text-slate-700">{user.full_name || user.email}</td>
                         <td className="py-4 font-black text-slate-800">R$ {Number(user.monthly_fee || 0).toFixed(2)}</td>
                         <td className="py-4">
                           <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
@@ -266,11 +258,6 @@ const Admin = () => {
                         </td>
                       </tr>
                     ))}
-                    {tableUsers.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="py-12 text-center text-slate-400 font-bold">Nenhum aluno encontrado com este status.</td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
@@ -279,17 +266,8 @@ const Admin = () => {
         </Tabs>
       </main>
 
-      <ExerciseDialog 
-        isOpen={isExerciseDialogOpen} 
-        onClose={() => setIsExerciseDialogOpen(false)} 
-        onSave={handleAddExerciseToUser}
-      />
-
-      <StudentDialog 
-        isOpen={isStudentDialogOpen}
-        onClose={() => setIsStudentDialogOpen(false)}
-        onSave={handleCreateStudent}
-      />
+      <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={handleAddExerciseToUser} />
+      <StudentDialog isOpen={isStudentDialogOpen} onClose={() => setIsStudentDialogOpen(false)} onSave={handleCreateStudent} />
     </div>
   );
 };
