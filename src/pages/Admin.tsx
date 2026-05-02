@@ -39,15 +39,17 @@ const Admin = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .neq('email', 'admin@admin.com');
-    
-    if (!error) {
+    try {
+      // Usamos a Edge Function para ignorar o RLS e ver todos os alunos
+      const { data, error } = await supabase.functions.invoke('admin-get-users');
+      
+      if (error) throw error;
       setUsers(data || []);
+    } catch (err: any) {
+      showError("Erro ao carregar alunos: " + err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSync = async () => {
