@@ -4,13 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
-  Users, ShieldCheck, ArrowLeft, DollarSign, Plus, 
-  TrendingUp, Wallet, AlertCircle, CheckCircle2
+  Users, ShieldCheck, ArrowLeft, Plus, 
+  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ExerciseDialog from '@/components/ExerciseDialog';
+import StudentDialog from '@/components/StudentDialog';
 import { showSuccess, showError } from '@/utils/toast';
 
 const Admin = () => {
@@ -20,6 +21,7 @@ const Admin = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
+  const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -37,6 +39,22 @@ const Admin = () => {
     const { data, error } = await supabase.from('profiles').select('*');
     if (!error) setUsers(data || []);
     setLoading(false);
+  };
+
+  const handleCreateStudent = async (formData: any) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-student', {
+        body: formData
+      });
+
+      if (error || data?.error) throw new Error(error?.message || data?.error);
+
+      showSuccess(`Aluno ${formData.full_name} cadastrado com sucesso!`);
+      fetchData();
+    } catch (err: any) {
+      showError("Erro ao cadastrar: " + err.message);
+      throw err;
+    }
   };
 
   const handleAddExerciseToUser = async (exercise: any) => {
@@ -75,7 +93,6 @@ const Admin = () => {
     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Cálculos Financeiros
   const totalPrevisto = users.reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
   const totalRecebido = users.filter(u => u.subscription_status === 'Ativo').reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
   const totalPendente = totalPrevisto - totalRecebido;
@@ -84,25 +101,33 @@ const Admin = () => {
     <div className="min-h-screen bg-slate-50 pb-12">
       <header className="bg-slate-900 text-white pt-12 pb-24 px-6 rounded-b-[3rem] shadow-2xl relative overflow-hidden">
         <div className="max-w-6xl mx-auto relative z-10">
-          <div className="flex items-center gap-4 mb-8">
-            <Button variant="ghost" onClick={() => navigate('/')} className="text-white hover:bg-white/10 rounded-2xl h-12 w-12 p-0">
-              <ArrowLeft size={24} />
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" onClick={() => navigate('/')} className="text-white hover:bg-white/10 rounded-2xl h-12 w-12 p-0">
+                <ArrowLeft size={24} />
+              </Button>
+              <h1 className="text-2xl md:text-3xl font-black tracking-tighter flex items-center gap-3">
+                Gestão Ki-Fit <ShieldCheck className="text-primary" />
+              </h1>
+            </div>
+            <Button 
+              onClick={() => setIsStudentDialogOpen(true)}
+              className="bg-primary hover:bg-primary/90 text-white rounded-2xl font-black text-xs uppercase tracking-widest h-12 px-6 shadow-lg shadow-primary/20"
+            >
+              <UserPlus size={18} className="mr-2" /> Novo Aluno
             </Button>
-            <h1 className="text-3xl font-black tracking-tighter flex items-center gap-3">
-              Gestão Ki-Fit <ShieldCheck className="text-primary" />
-            </h1>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10">
               <Users className="text-primary mb-2" size={20} />
               <p className="text-[10px] font-black uppercase text-slate-400">Total Alunos</p>
-              <p className="text-3xl font-black">{users.length}</p>
+              <p className="text-2xl md:text-3xl font-black">{users.length}</p>
             </div>
             <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10">
               <CheckCircle2 className="text-green-400 mb-2" size={20} />
               <p className="text-[10px] font-black uppercase text-slate-400">Ativos</p>
-              <p className="text-3xl font-black">{users.filter(u => u.subscription_status === 'Ativo').length}</p>
+              <p className="text-2xl md:text-3xl font-black">{users.filter(u => u.subscription_status === 'Ativo').length}</p>
             </div>
           </div>
         </div>
@@ -139,7 +164,7 @@ const Admin = () => {
                         <p className="text-xs font-bold text-slate-400">{user.email}</p>
                       </div>
                     </div>
-                    <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest">
+                    <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest w-full md:w-auto">
                       <Plus size={14} className="mr-2" /> Add Treino
                     </Button>
                   </div>
@@ -149,7 +174,6 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="financeiro" className="space-y-8">
-            {/* Dashboard Financeiro */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                 <div className="bg-blue-50 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
@@ -216,6 +240,12 @@ const Admin = () => {
         isOpen={isExerciseDialogOpen} 
         onClose={() => setIsExerciseDialogOpen(false)} 
         onSave={handleAddExerciseToUser}
+      />
+
+      <StudentDialog 
+        isOpen={isStudentDialogOpen}
+        onClose={() => setIsStudentDialogOpen(false)}
+        onSave={handleCreateStudent}
       />
     </div>
   );
