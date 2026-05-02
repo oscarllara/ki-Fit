@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from '@/lib/supabase';
-import { Search, Sparkles } from 'lucide-react';
+import { Search, Sparkles, Check } from 'lucide-react';
 
 interface Exercise {
   id: string;
@@ -28,7 +28,8 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
   const [videoUrl, setVideoUrl] = useState('');
   const [reps, setReps] = useState('3x12');
   const [weight, setWeight] = useState('0');
-  const [isSearching, setIsSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     if (initialData && isOpen) {
@@ -48,22 +49,36 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
     return str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
   };
 
-  // Busca inteligente de vídeo
-  const handleTitleBlur = async () => {
-    if (!title.trim() || videoUrl) return;
-    
-    setIsSearching(true);
-    const { data } = await supabase
-      .from('exercises')
-      .select('video_url')
-      .ilike('title', title.trim())
-      .not('video_url', 'is', null)
-      .limit(1);
-    
-    if (data && data[0]?.video_url) {
-      setVideoUrl(data[0].video_url);
+  const handleTitleChange = async (val: string) => {
+    const capitalized = capitalizeWords(val);
+    setTitle(capitalized);
+
+    if (val.length > 2) {
+      const { data } = await supabase
+        .from('exercises')
+        .select('title, video_url')
+        .ilike('title', `%${val}%`)
+        .limit(5);
+      
+      // Filtrar duplicatas por título
+      const unique = data?.reduce((acc: any[], current: any) => {
+        const x = acc.find(item => item.title === current.title);
+        if (!x) return acc.concat([current]);
+        return acc;
+      }, []);
+
+      setSuggestions(unique || []);
+      setShowSuggestions(true);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
     }
-    setIsSearching(false);
+  };
+
+  const selectSuggestion = (sug: any) => {
+    setTitle(sug.title);
+    setVideoUrl(sug.video_url || '');
+    setShowSuggestions(false);
   };
 
   const handleSave = () => {
@@ -87,19 +102,37 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-6 py-4">
-          <div className="grid gap-2">
+          <div className="grid gap-2 relative">
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nome do Exercício</Label>
             <div className="relative">
               <Input 
                 value={title} 
-                onChange={(e) => setTitle(capitalizeWords(e.target.value))} 
-                onBlur={handleTitleBlur}
+                onChange={(e) => handleTitleChange(e.target.value)} 
                 placeholder="Ex: Supino Reto" 
                 className="h-12 rounded-2xl bg-slate-50 border-none font-bold pr-10"
               />
-              {isSearching && <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-primary animate-pulse" size={18} />}
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
             </div>
+
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                {suggestions.map((sug, i) => (
+                  <button
+                    key={i}
+                    onClick={() => selectSuggestion(sug)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 text-left transition-colors border-b border-slate-50 last:border-none"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-700">{sug.title}</span>
+                      {sug.video_url && <span className="text-[10px] text-primary font-bold uppercase">Com vídeo</span>}
+                    </div>
+                    <Check size={14} className="text-slate-300" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+          
           <div className="grid gap-2">
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 flex items-center gap-2">
               URL do Vídeo {videoUrl && <Sparkles size={12} className="text-yellow-500 fill-yellow-500" />}

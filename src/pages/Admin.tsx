@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
-  Users, Dumbbell, TrendingUp, ArrowLeft, Search, ShieldCheck, 
-  ChevronRight, BarChart3, Activity, DollarSign, Calendar, Plus, Trash2
+  Users, ShieldCheck, ArrowLeft, DollarSign, Plus, 
+  TrendingUp, Wallet, AlertCircle, CheckCircle2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,6 @@ import { showSuccess, showError } from '@/utils/toast';
 const Admin = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
-  const [exercises, setExercises] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -35,12 +34,8 @@ const Admin = () => {
   }, [navigate]);
 
   const fetchData = async () => {
-    const [usersRes, exercisesRes] = await Promise.all([
-      supabase.from('profiles').select('*'),
-      supabase.from('exercises').select('*')
-    ]);
-    if (!usersRes.error) setUsers(usersRes.data || []);
-    if (!exercisesRes.error) setExercises(exercisesRes.data || []);
+    const { data, error } = await supabase.from('profiles').select('*');
+    if (!error) setUsers(data || []);
     setLoading(false);
   };
 
@@ -53,7 +48,7 @@ const Admin = () => {
       default_reps: exercise.defaultReps,
       default_weight: exercise.defaultWeight,
       user_id: selectedUser.id,
-      workout_type: 'A' // Padrão
+      workout_type: 'A'
     }]);
 
     if (!error) {
@@ -64,14 +59,13 @@ const Admin = () => {
     }
   };
 
-  const updateFinance = async (userId: string, status: string, date: string) => {
+  const updateFinance = async (userId: string, status: string) => {
     const { error } = await supabase.from('profiles').update({ 
-      subscription_status: status,
-      due_date: date 
+      subscription_status: status
     }).eq('id', userId);
     
     if (!error) {
-      showSuccess("Financeiro atualizado!");
+      showSuccess("Status financeiro atualizado!");
       fetchData();
     }
   };
@@ -80,6 +74,11 @@ const Admin = () => {
     (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Cálculos Financeiros
+  const totalPrevisto = users.reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
+  const totalRecebido = users.filter(u => u.subscription_status === 'Ativo').reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
+  const totalPendente = totalPrevisto - totalRecebido;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
@@ -97,11 +96,11 @@ const Admin = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10">
               <Users className="text-primary mb-2" size={20} />
-              <p className="text-[10px] font-black uppercase text-slate-400">Alunos</p>
+              <p className="text-[10px] font-black uppercase text-slate-400">Total Alunos</p>
               <p className="text-3xl font-black">{users.length}</p>
             </div>
             <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10">
-              <DollarSign className="text-green-400 mb-2" size={20} />
+              <CheckCircle2 className="text-green-400 mb-2" size={20} />
               <p className="text-[10px] font-black uppercase text-slate-400">Ativos</p>
               <p className="text-3xl font-black">{users.filter(u => u.subscription_status === 'Ativo').length}</p>
             </div>
@@ -121,7 +120,7 @@ const Admin = () => {
               <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <h2 className="text-2xl font-black text-slate-800">Gestão de Alunos</h2>
                 <Input 
-                  placeholder="Buscar..." 
+                  placeholder="Buscar aluno..." 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full md:w-72 h-12 rounded-2xl bg-slate-50 border-none font-bold"
@@ -140,18 +139,41 @@ const Admin = () => {
                         <p className="text-xs font-bold text-slate-400">{user.email}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest">
-                        <Plus size={14} className="mr-2" /> Add Treino
-                      </Button>
-                    </div>
+                    <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest">
+                      <Plus size={14} className="mr-2" /> Add Treino
+                    </Button>
                   </div>
                 ))}
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="financeiro" className="space-y-6">
+          <TabsContent value="financeiro" className="space-y-8">
+            {/* Dashboard Financeiro */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                <div className="bg-blue-50 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
+                  <TrendingUp className="text-blue-600" size={24} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Previsto</p>
+                <p className="text-3xl font-black text-slate-800">R$ {totalPrevisto.toFixed(2)}</p>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                <div className="bg-green-50 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
+                  <Wallet className="text-green-600" size={24} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valores Recebidos</p>
+                <p className="text-3xl font-black text-green-600">R$ {totalRecebido.toFixed(2)}</p>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+                <div className="bg-red-50 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
+                  <AlertCircle className="text-red-600" size={24} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valores Pendentes</p>
+                <p className="text-3xl font-black text-red-600">R$ {totalPendente.toFixed(2)}</p>
+              </div>
+            </div>
+
             <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
               <h2 className="text-2xl font-black text-slate-800 mb-8">Controle de Mensalidades</h2>
               <div className="overflow-x-auto">
@@ -159,8 +181,8 @@ const Admin = () => {
                   <thead>
                     <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
                       <th className="pb-4">Aluno</th>
+                      <th className="pb-4">Valor</th>
                       <th className="pb-4">Status</th>
-                      <th className="pb-4">Vencimento</th>
                       <th className="pb-4">Ações</th>
                     </tr>
                   </thead>
@@ -168,16 +190,16 @@ const Admin = () => {
                     {filteredUsers.map((user) => (
                       <tr key={user.id} className="group">
                         <td className="py-4 font-bold text-slate-700">{user.full_name}</td>
+                        <td className="py-4 font-black text-slate-800">R$ {Number(user.monthly_fee || 0).toFixed(2)}</td>
                         <td className="py-4">
                           <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                             {user.subscription_status || 'Inativo'}
                           </span>
                         </td>
-                        <td className="py-4 text-sm font-bold text-slate-500">{user.due_date || 'Não definido'}</td>
                         <td className="py-4">
                           <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => updateFinance(user.id, 'Ativo', '2024-12-30')} className="rounded-lg text-[10px] font-black">ATIVAR</Button>
-                            <Button size="sm" variant="destructive" onClick={() => updateFinance(user.id, 'Inativo', '')} className="rounded-lg text-[10px] font-black">BLOQUEAR</Button>
+                            <Button size="sm" variant="outline" onClick={() => updateFinance(user.id, 'Ativo')} className="rounded-lg text-[10px] font-black">PAGO</Button>
+                            <Button size="sm" variant="destructive" onClick={() => updateFinance(user.id, 'Inativo')} className="rounded-lg text-[10px] font-black">PENDENTE</Button>
                           </div>
                         </td>
                       </tr>
