@@ -15,6 +15,34 @@ import StudentDialog from '@/components/StudentDialog';
 import StudentDetailsSheet from '@/components/StudentDetailsSheet';
 import { showSuccess, showError } from '@/utils/toast';
 
+// Componente interno para gerenciar o input de moeda com formatação automática
+const CurrencyInput = ({ initialValue, onSave }: { initialValue: number, onSave: (val: number) => void }) => {
+  const [displayValue, setDisplayValue] = useState('');
+
+  useEffect(() => {
+    setDisplayValue((initialValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  }, [initialValue]);
+
+  const handleBlur = () => {
+    const cleanValue = displayValue.replace(/\s/g, '').replace('.', '').replace(',', '.');
+    const numericValue = parseFloat(cleanValue);
+    if (!isNaN(numericValue)) {
+      onSave(numericValue);
+      setDisplayValue(numericValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    }
+  };
+
+  return (
+    <Input 
+      value={displayValue}
+      onChange={(e) => setDisplayValue(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={(e) => e.key === 'Enter' && handleBlur()}
+      className="h-10 rounded-xl bg-slate-50 border-none font-black text-slate-800 focus:bg-white focus:ring-2 focus:ring-primary/20"
+    />
+  );
+};
+
 const Admin = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
@@ -99,38 +127,26 @@ const Admin = () => {
   };
 
   const updateFinance = async (userId: string, status: string) => {
-    // Atualização Otimista: atualiza a UI instantaneamente
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, subscription_status: status } : u));
-
     const { error } = await supabase.from('profiles').update({ 
       subscription_status: status
     }).eq('id', userId);
-
     if (error) {
       showError("Erro ao atualizar status");
-      fetchData(); // Rollback em caso de erro
+      fetchData();
     } else {
       showSuccess(status === 'Ativo' ? "Pagamento confirmado!" : "Status pendente!");
     }
   };
 
-  const updateMonthlyFee = async (userId: string, fee: string) => {
-    // Converte formato brasileiro (0,00) para número
-    const cleanValue = fee.replace('R$', '').replace(/\s/g, '').replace('.', '').replace(',', '.');
-    const val = parseFloat(cleanValue);
-    
-    if (isNaN(val)) return;
-
-    // Atualização Otimista
+  const updateMonthlyFee = async (userId: string, val: number) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, monthly_fee: val } : u));
-
     const { error } = await supabase.from('profiles').update({ 
       monthly_fee: val
     }).eq('id', userId);
-    
     if (error) {
       showError("Erro ao atualizar valor");
-      fetchData(); // Rollback
+      fetchData();
     } else {
       showSuccess("Valor atualizado!");
     }
@@ -331,11 +347,9 @@ const Admin = () => {
                         </td>
                         <td className="py-4">
                           <div className="relative w-32">
-                            <Input 
-                              defaultValue={(user.monthly_fee || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              onBlur={(e) => updateMonthlyFee(user.id, e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && updateMonthlyFee(user.id, (e.target as HTMLInputElement).value)}
-                              className="h-10 rounded-xl bg-slate-50 border-none font-black text-slate-800 focus:bg-white focus:ring-2 focus:ring-primary/20"
+                            <CurrencyInput 
+                              initialValue={user.monthly_fee || 0} 
+                              onSave={(val) => updateMonthlyFee(user.id, val)} 
                             />
                           </div>
                         </td>
