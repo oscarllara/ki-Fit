@@ -22,6 +22,7 @@ const Admin = () => {
   const [syncing, setSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all');
+  const [activeTab, setActiveTab] = useState('alunos');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [viewingUser, setViewingUser] = useState<any>(null);
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
@@ -107,13 +108,27 @@ const Admin = () => {
     }
   };
 
-  const filteredUsers = users.filter(u => 
-    (u.full_name || u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const updateMonthlyFee = async (userId: string, fee: string) => {
+    const val = parseFloat(fee.replace(',', '.'));
+    const { error } = await supabase.from('profiles').update({ 
+      monthly_fee: isNaN(val) ? 0 : val
+    }).eq('id', userId);
+    if (!error) {
+      showSuccess("Valor atualizado!");
+      fetchData();
+    }
+  };
 
-  const tableUsers = filteredUsers.filter(u => 
-    statusFilter === 'all' ? true : (u.subscription_status || 'Inativo') === statusFilter
-  );
+  const applyFilter = (filter: 'all' | 'Ativo' | 'Inativo', tab?: string) => {
+    setStatusFilter(filter);
+    if (tab) setActiveTab(tab);
+  };
+
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = (u.full_name || u.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' ? true : (u.subscription_status || 'Inativo') === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const totalPrevisto = users.reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
   const totalRecebido = users.filter(u => u.subscription_status === 'Ativo').reduce((acc, u) => acc + (Number(u.monthly_fee) || 0), 0);
@@ -151,22 +166,28 @@ const Admin = () => {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10">
-              <Users className="text-primary mb-2" size={20} />
+            <button 
+              onClick={() => applyFilter('all', 'alunos')}
+              className={`p-6 rounded-[2rem] border transition-all text-left ${statusFilter === 'all' && activeTab === 'alunos' ? 'bg-primary border-primary shadow-lg shadow-primary/20' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+            >
+              <Users className={statusFilter === 'all' && activeTab === 'alunos' ? 'text-white mb-2' : 'text-primary mb-2'} size={20} />
               <p className="text-[10px] font-black uppercase text-slate-400">Total Alunos</p>
               <p className="text-2xl md:text-3xl font-black">{users.length}</p>
-            </div>
-            <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10">
-              <CheckCircle2 className="text-green-400 mb-2" size={20} />
+            </button>
+            <button 
+              onClick={() => applyFilter('Ativo', 'alunos')}
+              className={`p-6 rounded-[2rem] border transition-all text-left ${statusFilter === 'Ativo' && activeTab === 'alunos' ? 'bg-green-500 border-green-500 shadow-lg shadow-green-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+            >
+              <CheckCircle2 className={statusFilter === 'Ativo' && activeTab === 'alunos' ? 'text-white mb-2' : 'text-green-400 mb-2'} size={20} />
               <p className="text-[10px] font-black uppercase text-slate-400">Ativos</p>
               <p className="text-2xl md:text-3xl font-black">{users.filter(u => u.subscription_status === 'Ativo').length}</p>
-            </div>
+            </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-6 -mt-10 relative z-20">
-        <Tabs defaultValue="alunos" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="bg-white/80 backdrop-blur-md p-1.5 rounded-2xl shadow-xl border border-slate-100 mb-8 h-14">
             <TabsTrigger value="alunos" className="rounded-xl font-black text-xs uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white h-full px-8">Alunos</TabsTrigger>
             <TabsTrigger value="financeiro" className="rounded-xl font-black text-xs uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white h-full px-8">Financeiro</TabsTrigger>
@@ -175,7 +196,14 @@ const Admin = () => {
           <TabsContent value="alunos" className="space-y-6">
             <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
               <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                <h2 className="text-2xl font-black text-slate-800">Gestão de Alunos</h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-black text-slate-800">Gestão de Alunos</h2>
+                  {statusFilter !== 'all' && (
+                    <Button variant="ghost" size="sm" onClick={() => setStatusFilter('all')} className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5">
+                      Limpar Filtro
+                    </Button>
+                  )}
+                </div>
                 <Input 
                   placeholder="Buscar por nome ou e-mail..." 
                   value={searchTerm}
@@ -202,9 +230,14 @@ const Admin = () => {
                           <p className="text-xs font-bold text-slate-400">{user.email || 'E-mail não sincronizado'}</p>
                         </div>
                       </button>
-                      <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest w-full md:w-auto">
-                        <Plus size={14} className="mr-2" /> Add Treino
-                      </Button>
+                      <div className="flex items-center gap-3 w-full md:w-auto">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                          {user.subscription_status || 'Inativo'}
+                        </span>
+                        <Button onClick={() => { setSelectedUser(user); setIsExerciseDialogOpen(true); }} className="rounded-xl font-black text-[10px] uppercase tracking-widest flex-1 md:flex-none">
+                          <Plus size={14} className="mr-2" /> Add Treino
+                        </Button>
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -216,17 +249,26 @@ const Admin = () => {
 
           <TabsContent value="financeiro" className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <button onClick={() => setStatusFilter('all')} className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all ${statusFilter === 'all' ? 'border-primary ring-2 ring-primary/20' : 'border-slate-100'}`}>
+              <button 
+                onClick={() => applyFilter('all')} 
+                className={`p-8 rounded-[2.5rem] shadow-xl border transition-all text-left ${statusFilter === 'all' ? 'bg-white border-primary ring-4 ring-primary/10' : 'bg-white border-slate-100 hover:border-primary/30'}`}
+              >
                 <TrendingUp className="text-blue-600 mb-4" size={24} />
                 <p className="text-[10px] font-black uppercase text-slate-400">Total Previsto</p>
                 <p className="text-3xl font-black text-slate-800">R$ {totalPrevisto.toFixed(2)}</p>
               </button>
-              <button onClick={() => setStatusFilter('Ativo')} className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all ${statusFilter === 'Ativo' ? 'border-green-500 ring-2 ring-green-500/20' : 'border-slate-100'}`}>
+              <button 
+                onClick={() => applyFilter('Ativo')} 
+                className={`p-8 rounded-[2.5rem] shadow-xl border transition-all text-left ${statusFilter === 'Ativo' ? 'bg-white border-green-500 ring-4 ring-green-500/10' : 'bg-white border-slate-100 hover:border-green-500/30'}`}
+              >
                 <Wallet className="text-green-600 mb-4" size={24} />
                 <p className="text-[10px] font-black uppercase text-slate-400">Recebidos</p>
                 <p className="text-3xl font-black text-green-600">R$ {totalRecebido.toFixed(2)}</p>
               </button>
-              <button onClick={() => setStatusFilter('Inativo')} className={`bg-white p-8 rounded-[2.5rem] shadow-xl border transition-all ${statusFilter === 'Inativo' ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-100'}`}>
+              <button 
+                onClick={() => applyFilter('Inativo')} 
+                className={`p-8 rounded-[2.5rem] shadow-xl border transition-all text-left ${statusFilter === 'Inativo' ? 'bg-white border-red-500 ring-4 ring-red-500/10' : 'bg-white border-slate-100 hover:border-red-500/30'}`}
+              >
                 <AlertCircle className="text-red-600 mb-4" size={24} />
                 <p className="text-[10px] font-black uppercase text-slate-400">Pendentes</p>
                 <p className="text-3xl font-black text-red-600">R$ {totalPendente.toFixed(2)}</p>
@@ -234,22 +276,42 @@ const Admin = () => {
             </div>
 
             <div className="bg-white rounded-[2.5rem] shadow-xl p-6 md:p-10 border border-slate-100">
-              <h2 className="text-2xl font-black text-slate-800 mb-8">Controle de Mensalidades</h2>
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-black text-slate-800">Controle de Mensalidades</h2>
+                {statusFilter !== 'all' && (
+                  <Button variant="ghost" size="sm" onClick={() => setStatusFilter('all')} className="text-[10px] font-black uppercase tracking-widest text-primary">
+                    Ver Todos
+                  </Button>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
                       <th className="pb-4">Aluno</th>
-                      <th className="pb-4">Valor</th>
+                      <th className="pb-4">Valor (R$)</th>
                       <th className="pb-4">Status</th>
                       <th className="pb-4">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {tableUsers.map((user) => (
-                      <tr key={user.id}>
-                        <td className="py-4 font-bold text-slate-700">{user.full_name || user.email}</td>
-                        <td className="py-4 font-black text-slate-800">R$ {Number(user.monthly_fee || 0).toFixed(2)}</td>
+                    {filteredUsers.map((user) => (
+                      <tr key={user.id} className="group">
+                        <td className="py-4">
+                          <button onClick={() => setViewingUser(user)} className="font-bold text-slate-700 hover:text-primary transition-colors">
+                            {user.full_name || user.email}
+                          </button>
+                        </td>
+                        <td className="py-4">
+                          <div className="relative w-24">
+                            <Input 
+                              defaultValue={user.monthly_fee || 0}
+                              onBlur={(e) => updateMonthlyFee(user.id, e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && updateMonthlyFee(user.id, (e.target as HTMLInputElement).value)}
+                              className="h-10 rounded-xl bg-slate-50 border-none font-black text-slate-800 focus:bg-white focus:ring-2 focus:ring-primary/20"
+                            />
+                          </div>
+                        </td>
                         <td className="py-4">
                           <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                             {user.subscription_status || 'Inativo'}
@@ -257,8 +319,22 @@ const Admin = () => {
                         </td>
                         <td className="py-4">
                           <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => updateFinance(user.id, 'Ativo')} className="rounded-lg text-[10px] font-black">PAGO</Button>
-                            <Button size="sm" variant="destructive" onClick={() => updateFinance(user.id, 'Inativo')} className="rounded-lg text-[10px] font-black">PENDENTE</Button>
+                            <Button 
+                              size="sm" 
+                              variant={user.subscription_status === 'Ativo' ? 'default' : 'outline'} 
+                              onClick={() => updateFinance(user.id, 'Ativo')} 
+                              className="rounded-lg text-[10px] font-black h-9 px-4"
+                            >
+                              PAGO
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant={user.subscription_status === 'Inativo' ? 'destructive' : 'outline'} 
+                              onClick={() => updateFinance(user.id, 'Inativo')} 
+                              className="rounded-lg text-[10px] font-black h-9 px-4"
+                            >
+                              PENDENTE
+                            </Button>
                           </div>
                         </td>
                       </tr>
