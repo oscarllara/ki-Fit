@@ -99,12 +99,18 @@ const Admin = () => {
   };
 
   const updateFinance = async (userId: string, status: string) => {
+    // Atualização Otimista: atualiza a UI instantaneamente
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, subscription_status: status } : u));
+
     const { error } = await supabase.from('profiles').update({ 
       subscription_status: status
     }).eq('id', userId);
-    if (!error) {
+
+    if (error) {
+      showError("Erro ao atualizar status");
+      fetchData(); // Rollback em caso de erro
+    } else {
       showSuccess(status === 'Ativo' ? "Pagamento confirmado!" : "Status pendente!");
-      fetchData();
     }
   };
 
@@ -113,13 +119,20 @@ const Admin = () => {
     const cleanValue = fee.replace('R$', '').replace(/\s/g, '').replace('.', '').replace(',', '.');
     const val = parseFloat(cleanValue);
     
+    if (isNaN(val)) return;
+
+    // Atualização Otimista
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, monthly_fee: val } : u));
+
     const { error } = await supabase.from('profiles').update({ 
-      monthly_fee: isNaN(val) ? 0 : val
+      monthly_fee: val
     }).eq('id', userId);
     
-    if (!error) {
+    if (error) {
+      showError("Erro ao atualizar valor");
+      fetchData(); // Rollback
+    } else {
       showSuccess("Valor atualizado!");
-      fetchData();
     }
   };
 
