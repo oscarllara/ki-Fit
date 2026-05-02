@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Instagram, Facebook, Linkedin, ArrowRight, Zap, Lock, Camera, User, Plus } from 'lucide-react';
+import { Instagram, Facebook, Linkedin, ArrowRight, Zap, Lock, Camera, Plus } from 'lucide-react';
 import SocialInput from '@/components/SocialInput';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -31,9 +31,28 @@ const Login = () => {
     return name.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
+  const formatWhatsApp = (value: string) => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, '');
+    // Remove o 55 inicial se existir para não duplicar na lógica
+    const core = numbers.startsWith('55') ? numbers.slice(2) : numbers;
+    
+    let formatted = '+55 ';
+    if (core.length > 0) {
+      formatted += '(' + core.slice(0, 2);
+    }
+    if (core.length > 2) {
+      formatted += ') ' + core.slice(2, 7);
+    }
+    if (core.length > 7) {
+      formatted += '-' + core.slice(7, 11);
+    }
+    return formatted;
+  };
+
   const handlePhoneFocus = () => {
     if (phoneRef.current) {
-      const pos = 4; // Posição após "+55 "
+      const pos = formData.telefone.length;
       phoneRef.current.setSelectionRange(pos, pos);
     }
   };
@@ -57,6 +76,7 @@ const Login = () => {
         return;
       }
 
+      // Se o erro for credenciais inválidas, pode ser novo usuário
       if (error.message === "Invalid login credentials") {
         setIsNewUser(true);
         setStep(2);
@@ -85,7 +105,15 @@ const Login = () => {
         }
       });
 
-      if (signUpError) throw signUpError;
+      if (signUpError) {
+        if (signUpError.message.includes("already registered")) {
+          showError("Este e-mail já está cadastrado. Tente fazer login com a senha correta.");
+          setStep(1);
+          setIsNewUser(false);
+          return;
+        }
+        throw signUpError;
+      }
 
       if (signUpData.user) {
         const { error: profileError } = await supabase.from('profiles').upsert({
@@ -197,10 +225,8 @@ const Login = () => {
                   onFocus={handlePhoneFocus}
                   onClick={handlePhoneFocus}
                   onChange={(e) => {
-                    const val = e.target.value;
-                    if (val.startsWith('+55 ')) {
-                      setFormData({...formData, telefone: val});
-                    }
+                    const formatted = formatWhatsApp(e.target.value);
+                    setFormData({...formData, telefone: formatted});
                   }}
                   className="h-12 rounded-2xl border-none bg-white shadow-sm font-bold"
                   placeholder="+55 (00) 00000-0000"
