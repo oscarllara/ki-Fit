@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from '@/lib/supabase';
-import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, Edit2, GripVertical, Link as LinkIcon, Unlink, Layers, Clock, Weight } from 'lucide-react';
+import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, Edit2, GripVertical, Link as LinkIcon, Unlink, Layers, Clock, Weight, Copy } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import ExerciseDialog from './ExerciseDialog';
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,7 +39,7 @@ interface StudentDetailsSheetProps {
   onClose: () => void;
 }
 
-const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, isOverlay = false, isSelected, onSelect, isPartOfGroup = false }: any) => {
+const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, onDuplicate, isOverlay = false, isSelected, onSelect, isPartOfGroup = false }: any) => {
   const {
     attributes,
     listeners,
@@ -93,6 +93,9 @@ const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, isOverlay = false, is
       </div>
       {!isOverlay && (
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button variant="ghost" size="icon" onClick={() => onDuplicate(ex)} title="Duplicar" className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10">
+            <Copy size={14} />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => onEdit(ex)} className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary">
             <Edit2 size={14} />
           </Button>
@@ -135,6 +138,27 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       .order('order_index', { ascending: true });
     if (!error) setExercises(data || []);
     setLoading(false);
+  };
+
+  const handleDuplicate = async (ex: any) => {
+    try {
+      const { id, created_at, ...rest } = ex;
+      const typeExercises = exercises.filter(e => (e.workout_type || 'A') === (ex.workout_type || activeTab));
+      
+      const { error } = await supabase.from('exercises').insert([{
+        ...rest,
+        title: `${rest.title} (Cópia)`,
+        order_index: typeExercises.length,
+        completions: 0,
+        level: 1
+      }]);
+      
+      if (error) throw error;
+      showSuccess("Exercício duplicado!");
+      fetchExercises();
+    } catch (err: any) {
+      showError("Erro ao duplicar");
+    }
   };
 
   const handleGroup = async () => {
@@ -269,6 +293,7 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
                 isSelected={selectedIds.includes(ex.id)}
                 onSelect={toggleSelect}
                 isPartOfGroup={true}
+                onDuplicate={handleDuplicate}
                 onEdit={(e: any) => { setEditingExercise({...e, videoUrl: e.video_url, defaultReps: e.default_reps, defaultWeight: e.default_weight, isTimeBased: e.is_time_based}); setIsDialogOpen(true); }}
                 onDelete={async (id: string) => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', id); fetchExercises(); } }}
               />
@@ -282,6 +307,7 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
             key={current.id} ex={current} idx={i} 
             isSelected={selectedIds.includes(current.id)}
             onSelect={toggleSelect}
+            onDuplicate={handleDuplicate}
             onEdit={(e: any) => { setEditingExercise({...e, videoUrl: e.video_url, defaultReps: e.default_reps, defaultWeight: e.default_weight, isTimeBased: e.is_time_based}); setIsDialogOpen(true); }}
             onDelete={async (id: string) => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', id); fetchExercises(); } }}
           />
