@@ -25,6 +25,7 @@ interface Exercise {
   level: number;
   completions: number;
   workout_type: string;
+  order_index: number;
 }
 
 type WorkoutType = 'A' | 'B' | 'C';
@@ -46,7 +47,9 @@ const Index = () => {
       const { data, error } = await supabase
         .from('exercises')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: true });
       
       if (error) throw error;
 
@@ -62,7 +65,8 @@ const Index = () => {
             default_weight: ex.default_weight || '0',
             level: ex.level || 1,
             completions: ex.completions || 0,
-            workout_type: type
+            workout_type: type,
+            order_index: ex.order_index || 0
           });
         });
       }
@@ -234,6 +238,7 @@ const Index = () => {
           title: editingExercise.title,
           videoUrl: editingExercise.video_url,
           defaultReps: editingExercise.default_reps,
+          default_weight: editingExercise.default_weight,
           defaultWeight: editingExercise.default_weight
         } : null}
       />

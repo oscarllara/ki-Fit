@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from '@/lib/supabase';
-import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus } from 'lucide-react';
+import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import ExerciseDialog from './ExerciseDialog';
 
@@ -34,7 +34,8 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       .from('exercises')
       .select('*')
       .eq('user_id', student.id)
-      .order('created_at', { ascending: false });
+      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: true });
     
     if (!error) setExercises(data || []);
     setLoading(false);
@@ -52,6 +53,10 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
   };
 
   const handleAddExercise = async (ex: any) => {
+    // Define o order_index como o último da lista atual do tipo selecionado
+    const currentTypeExercises = exercises.filter(e => (e.workout_type || 'A') === (ex.workoutType || activeTab));
+    const nextOrder = currentTypeExercises.length;
+
     const exerciseData = {
       title: ex.title,
       name: ex.title,
@@ -59,7 +64,8 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       default_reps: ex.defaultReps,
       default_weight: ex.defaultWeight,
       user_id: student.id,
-      workout_type: ex.workoutType || activeTab
+      workout_type: ex.workoutType || activeTab,
+      order_index: nextOrder
     };
     
     const { error } = await supabase.from('exercises').insert([exerciseData]);
@@ -69,6 +75,31 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       setIsAddDialogOpen(false);
     } else {
       showError("Erro ao salvar treino: " + error.message);
+    }
+  };
+
+  const moveExercise = async (id: string, direction: 'up' | 'down') => {
+    const type = exercises.find(ex => ex.id === id)?.workout_type || 'A';
+    const typeExercises = exercises.filter(ex => (ex.workout_type || 'A') === type);
+    const index = typeExercises.findIndex(ex => ex.id === id);
+
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === typeExercises.length - 1) return;
+
+    const otherIndex = direction === 'up' ? index - 1 : index + 1;
+    const currentEx = typeExercises[index];
+    const otherEx = typeExercises[otherIndex];
+
+    // Swap order_index
+    const { error } = await supabase.from('exercises').upsert([
+      { id: currentEx.id, order_index: otherEx.order_index || otherIndex },
+      { id: otherEx.id, order_index: currentEx.order_index || index }
+    ]);
+
+    if (!error) {
+      fetchExercises();
+    } else {
+      showError("Erro ao reordenar");
     }
   };
 
@@ -147,13 +178,35 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
                     {loading ? (
                       <p className="text-center py-4 text-slate-400 font-bold">Carregando...</p>
                     ) : filteredExercises(type).length > 0 ? (
-                      filteredExercises(type).map((ex) => (
+                      filteredExercises(type).map((ex, idx, arr) => (
                         <div key={ex.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group">
-                          <div>
-                            <p className="font-black text-slate-800 text-sm">{ex.title || ex.name}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                              {ex.default_reps} • {ex.default_weight}kg
-                            </p>
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 rounded-md hover:bg-primary/10 hover:text-primary disabled:opacity-20"
+                                onClick={() => moveExercise(ex.id, 'up')}
+                                disabled={idx === 0}
+                              >
+                                <ChevronUp size={14} />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 rounded-md hover:bg-primary/10 hover:text-primary disabled:opacity-20"
+                                onClick={() => moveExercise(ex.id, 'down')}
+                                disabled={idx === arr.length - 1}
+                              >
+                                <ChevronDown size={14} />
+                              </Button>
+                            </div>
+                            <div>
+                              <p className="font-black text-slate-800 text-sm">{ex.title || ex.name}</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                {ex.default_reps} • {ex.default_weight}kg
+                              </p>
+                            </div>
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             {ex.video_url && (
