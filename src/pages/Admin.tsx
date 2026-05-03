@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
-  Users, ShieldCheck, ArrowLeft, Plus, Edit,
-  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw, X, Calendar, Phone, User
+  Users, ShieldCheck, ArrowLeft, Plus, Edit, Trash2,
+  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw, X, Calendar, Phone, User, Loader2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ const Admin = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'Pago' | 'Pendente'>('all');
@@ -99,6 +100,26 @@ const Admin = () => {
       showError("Erro: " + err.message);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleDeleteStudent = async (userId: string, name: string) => {
+    if (!confirm(`Tem certeza que deseja excluir permanentemente o aluno ${name}? Esta ação não pode ser desfeita.`)) return;
+    
+    setDeletingId(userId);
+    try {
+      const { error } = await supabase.functions.invoke('delete-student', {
+        body: { userId }
+      });
+      
+      if (error) throw error;
+      
+      showSuccess("Aluno excluído com sucesso!");
+      fetchData();
+    } catch (err: any) {
+      showError("Erro ao excluir: " + err.message);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -319,6 +340,15 @@ const Admin = () => {
                     <div className="flex items-center gap-3 w-full md:w-auto">
                       <Button variant="outline" size="icon" onClick={() => { setEditingUser(user); setIsEditProfileOpen(true); }} className="rounded-xl h-10 w-10 border-slate-200">
                         <Edit size={16} className="text-slate-600" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => handleDeleteStudent(user.id, user.full_name || user.email)} 
+                        disabled={deletingId === user.id}
+                        className="rounded-xl h-10 w-10 border-red-100 hover:bg-red-50"
+                      >
+                        {deletingId === user.id ? <Loader2 className="animate-spin text-red-500" size={16} /> : <Trash2 size={16} className="text-red-500" />}
                       </Button>
                       <button onClick={() => updateField(user.id, 'subscription_status', user.subscription_status === 'Ativo' ? 'Inativo' : 'Ativo')} className={`px-4 py-2 rounded-full text-[10px] font-black uppercase transition-all ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                         {user.subscription_status === 'Ativo' ? 'ATIVO' : 'INATIVO'}
