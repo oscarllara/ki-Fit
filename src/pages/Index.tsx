@@ -7,15 +7,15 @@ import WorkoutHeader from '@/components/WorkoutHeader';
 import ExerciseCard from '@/components/ExerciseCard';
 import ExerciseDialog from '@/components/ExerciseDialog';
 import ProfileDialog from '@/components/ProfileDialog';
+import PaymentDialog from '@/components/PaymentDialog';
 import UserNav from '@/components/UserNav';
 import RestTimer from '@/components/RestTimer';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles, RefreshCw, Link as LinkIcon, Layers, Wallet, Calendar, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
+import { Plus, Sparkles, RefreshCw, Link as LinkIcon, Layers, Wallet, Calendar, CheckCircle2, AlertCircle, TrendingUp, ArrowRight } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 interface Exercise {
   id: string;
@@ -39,6 +39,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<WorkoutType>('A');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -269,6 +270,13 @@ const Index = () => {
                       </div>
                     </div>
                   </div>
+
+                  <Button 
+                    onClick={() => setIsPaymentOpen(true)}
+                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest bg-primary text-slate-950 hover:bg-primary/90 shadow-lg shadow-primary/20 mt-4"
+                  >
+                    Pagar Agora <ArrowRight className="ml-2" size={18} />
+                  </Button>
                 </div>
               </div>
 
@@ -318,6 +326,13 @@ const Index = () => {
           showSuccess("Perfil atualizado!"); 
         }} 
         initialData={user} 
+      />
+
+      <PaymentDialog 
+        isOpen={isPaymentOpen} 
+        onClose={() => setIsPaymentOpen(false)} 
+        userId={user?.id} 
+        monthlyFee={user?.monthly_fee || 0} 
       />
       
       <footer className="mt-12 opacity-50"><MadeWithDyad /></footer>

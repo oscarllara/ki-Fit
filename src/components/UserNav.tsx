@@ -27,10 +27,10 @@ const UserNav = ({ user, onLogout, onAdmin, onProfileUpdate, isAdmin }: UserNavP
   const initials = firstName.slice(0, 2).toUpperCase();
 
   return (
-    <div className="fixed top-6 right-6 z-50">
-      <DropdownMenu>
+    <div className="fixed top-6 right-6 z-[100]">
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-14 w-auto pl-2 pr-4 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl hover:bg-white/10 transition-all group">
+          <Button variant="ghost" className="relative h-14 w-auto pl-2 pr-4 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl hover:bg-white/20 transition-all group pointer-events-auto">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10 border-2 border-primary/20 group-hover:border-primary transition-colors">
                 <AvatarImage src={user?.avatar_url} alt={firstName} className="object-cover" />
@@ -50,7 +50,7 @@ const UserNav = ({ user, onLogout, onAdmin, onProfileUpdate, isAdmin }: UserNavP
             </div>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 rounded-[1.5rem] p-2 shadow-2xl border border-white/10 bg-slate-900" align="end">
+        <DropdownMenuContent className="w-56 rounded-[1.5rem] p-2 shadow-2xl border border-white/10 bg-slate-900 z-[110]" align="end">
           <DropdownMenuLabel className="font-black text-xs uppercase tracking-widest text-slate-400 px-4 py-3">
             Minha Conta
           </DropdownMenuLabel>
