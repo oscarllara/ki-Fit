@@ -408,12 +408,13 @@ const Admin = () => {
           name: ex.title,
           video_url: ex.videoUrl,
           default_reps: ex.defaultReps,
-          default_weight: ex.default_weight,
+          default_weight: ex.defaultWeight,
           user_id: selectedUser.id,
-          workout_type: 'A'
+          workout_type: ex.workoutType || 'A',
+          is_time_based: ex.isTimeBased
         };
         const { error } = await supabase.from('exercises').insert([exerciseData]);
-        if (!error) { showSuccess("Treino adicionado!"); setIsExerciseDialogOpen(false); }
+        if (!error) { showSuccess("Treino adicionado!"); setIsExerciseDialogOpen(false); fetchData(); }
       }} />
       <StudentDialog 
         isOpen={isStudentDialogOpen} 
