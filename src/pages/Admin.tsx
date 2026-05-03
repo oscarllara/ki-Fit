@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
   Users, ShieldCheck, ArrowLeft, Plus, Edit, Trash2,
-  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw, X, Calendar, Phone, User, Loader2
+  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw, X, Calendar, Phone, User, Loader2, Dumbbell, Zap
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -222,8 +222,8 @@ const Admin = () => {
               <Button variant="ghost" onClick={() => navigate('/')} className="text-white hover:bg-white/10 rounded-2xl h-12 w-12 p-0">
                 <ArrowLeft size={24} />
               </Button>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tighter flex items-center gap-3">
-                Gestão Ki-Fit <ShieldCheck className="text-primary" />
+              <h1 className="text-2xl md:text-3xl font-black tracking-tighter flex items-center gap-3 uppercase">
+                Gestão Ki Body <span className="text-primary">Fit</span> <ShieldCheck className="text-primary" />
               </h1>
             </div>
             <div className="flex gap-3">

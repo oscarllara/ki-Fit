@@ -46,7 +46,7 @@ const UserNav = ({ user, onLogout, onAdmin, onProfileUpdate, isAdmin }: UserNavP
                   {firstName}
                 </span>
                 <span className="text-[10px] font-bold text-slate-400 leading-none mt-1">
-                  {isAdmin ? 'Gestor Ki-Fit' : 'Atleta'}
+                  {isAdmin ? 'Gestor Ki Body Fit' : 'Atleta'}
                 </span>
               </div>
               <ChevronDown size={14} className="text-slate-400 group-hover:text-primary transition-colors" />
