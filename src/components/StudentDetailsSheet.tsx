@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from '@/lib/supabase';
-import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, Edit2, GripVertical, Link as LinkIcon, Unlink, Layers } from 'lucide-react';
+import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, Edit2, GripVertical, Link as LinkIcon, Unlink, Layers, Clock, Weight } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import ExerciseDialog from './ExerciseDialog';
 import { Checkbox } from "@/components/ui/checkbox";
@@ -64,6 +64,7 @@ const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, isOverlay = false, is
         {!isOverlay && (
           <Checkbox 
             checked={isSelected} 
+            onSelect={() => onSelect(ex.id)}
             onCheckedChange={() => onSelect(ex.id)}
             className="rounded-md border-slate-200 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
           />
@@ -75,14 +76,19 @@ const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, isOverlay = false, is
         >
           <GripVertical size={20} />
         </div>
-        <div>
-          <p className="font-black text-slate-800 text-sm">
-            {!isPartOfGroup && <span className="text-primary font-black mr-1">#{idx + 1}</span>}
-            {ex.title || ex.name}
-          </p>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            {ex.default_reps} • {ex.default_weight}kg
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-50 p-2 rounded-xl">
+            {ex.is_time_based ? <Clock size={16} className="text-primary" /> : <Weight size={16} className="text-primary" />}
+          </div>
+          <div>
+            <p className="font-black text-slate-800 text-sm">
+              {!isPartOfGroup && <span className="text-primary font-black mr-1">#{idx + 1}</span>}
+              {ex.title || ex.name}
+            </p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {ex.default_reps} • {ex.default_weight}{ex.is_time_based ? 'min' : 'kg'}
+            </p>
+          </div>
         </div>
       </div>
       {!isOverlay && (
@@ -202,7 +208,8 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       default_reps: ex.defaultReps, 
       default_weight: ex.defaultWeight, 
       user_id: student.id, 
-      workout_type: ex.workoutType || activeTab 
+      workout_type: ex.workoutType || activeTab,
+      is_time_based: ex.isTimeBased
     };
 
     if (editingExercise) {
@@ -211,14 +218,12 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       const typeExercises = exercises.filter(e => (e.workout_type || 'A') === (ex.workoutType || activeTab));
       data.order_index = typeExercises.length;
 
-      // Lógica de agrupamento automático
       if (ex.groupWithPrevious && typeExercises.length > 0) {
         const lastEx = typeExercises[typeExercises.length - 1];
         if (lastEx.superset_id) {
           data.superset_id = lastEx.superset_id;
         } else {
           const newSupersetId = crypto.randomUUID();
-          // Atualiza o anterior para ter o mesmo ID
           await supabase.from('exercises').update({ superset_id: newSupersetId }).eq('id', lastEx.id);
           data.superset_id = newSupersetId;
         }
@@ -264,7 +269,7 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
                 isSelected={selectedIds.includes(ex.id)}
                 onSelect={toggleSelect}
                 isPartOfGroup={true}
-                onEdit={(e: any) => { setEditingExercise({...e, videoUrl: e.video_url, defaultReps: e.default_reps, defaultWeight: e.default_weight}); setIsDialogOpen(true); }}
+                onEdit={(e: any) => { setEditingExercise({...e, videoUrl: e.video_url, defaultReps: e.default_reps, defaultWeight: e.default_weight, isTimeBased: e.is_time_based}); setIsDialogOpen(true); }}
                 onDelete={async (id: string) => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', id); fetchExercises(); } }}
               />
             ))}
@@ -277,7 +282,7 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
             key={current.id} ex={current} idx={i} 
             isSelected={selectedIds.includes(current.id)}
             onSelect={toggleSelect}
-            onEdit={(e: any) => { setEditingExercise({...e, videoUrl: e.video_url, defaultReps: e.default_reps, defaultWeight: e.default_weight}); setIsDialogOpen(true); }}
+            onEdit={(e: any) => { setEditingExercise({...e, videoUrl: e.video_url, defaultReps: e.default_reps, defaultWeight: e.default_weight, isTimeBased: e.is_time_based}); setIsDialogOpen(true); }}
             onDelete={async (id: string) => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', id); fetchExercises(); } }}
           />
         );

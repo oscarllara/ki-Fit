@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from '@/lib/supabase';
-import { Search, Sparkles, Check, Link as LinkIcon } from 'lucide-react';
+import { Search, Sparkles, Check, Link as LinkIcon, Clock, Weight } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Exercise {
   id: string;
@@ -18,6 +19,7 @@ interface Exercise {
   defaultWeight: string;
   workoutType?: string;
   groupWithPrevious?: boolean;
+  isTimeBased?: boolean;
 }
 
 interface ExerciseDialogProps {
@@ -35,6 +37,7 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
   const [weight, setWeight] = useState('0');
   const [workoutType, setWorkoutType] = useState(defaultWorkoutType);
   const [groupWithPrevious, setGroupWithPrevious] = useState(false);
+  const [isTimeBased, setIsTimeBased] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -45,6 +48,7 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
       setReps(initialData.defaultReps || '3x12');
       setWeight(initialData.defaultWeight || '0');
       setWorkoutType(initialData.workoutType || defaultWorkoutType);
+      setIsTimeBased(initialData.isTimeBased || false);
       setGroupWithPrevious(false);
     } else if (isOpen) {
       setTitle('');
@@ -52,6 +56,7 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
       setReps('3x12');
       setWeight('0');
       setWorkoutType(defaultWorkoutType);
+      setIsTimeBased(false);
       setGroupWithPrevious(false);
     }
   }, [initialData, isOpen, defaultWorkoutType]);
@@ -67,7 +72,7 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
     if (val.length > 2) {
       const { data } = await supabase
         .from('exercises')
-        .select('title, video_url')
+        .select('title, video_url, is_time_based')
         .ilike('title', `%${val}%`)
         .limit(10);
       
@@ -88,6 +93,7 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
   const selectSuggestion = (sug: any) => {
     setTitle(sug.title);
     setVideoUrl(sug.video_url || '');
+    setIsTimeBased(sug.is_time_based || false);
     setShowSuggestions(false);
   };
 
@@ -100,14 +106,15 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
       defaultReps: reps,
       defaultWeight: weight,
       workoutType: workoutType,
-      groupWithPrevious: groupWithPrevious
+      groupWithPrevious: groupWithPrevious,
+      isTimeBased: isTimeBased
     });
     onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] rounded-[2.5rem] border-none shadow-2xl">
+      <DialogContent className="sm:max-w-[425px] rounded-[2.5rem] border-none shadow-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black tracking-tighter text-slate-800">
             {initialData ? 'Editar Exercício' : 'Novo Exercício'}
@@ -128,13 +135,27 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
             </Select>
           </div>
 
+          <div className="grid gap-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Modalidade</Label>
+            <Tabs value={isTimeBased ? 'cardio' : 'musculacao'} onValueChange={(v) => setIsTimeBased(v === 'cardio')} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 h-12 rounded-xl bg-slate-100 p-1">
+                <TabsTrigger value="musculacao" className="rounded-lg font-bold text-[10px] uppercase flex items-center gap-2">
+                  <Weight size={14} /> Musculação
+                </TabsTrigger>
+                <TabsTrigger value="cardio" className="rounded-lg font-bold text-[10px] uppercase flex items-center gap-2">
+                  <Clock size={14} /> Cardio/Tempo
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
           <div className="grid gap-2 relative">
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nome do Exercício</Label>
             <div className="relative">
               <Input 
                 value={title} 
                 onChange={(e) => handleTitleChange(e.target.value)} 
-                placeholder="Ex: Supino Reto" 
+                placeholder="Ex: Supino Reto ou Esteira" 
                 className="h-12 rounded-2xl bg-slate-50 border-none font-bold pr-10"
               />
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -172,11 +193,15 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Séries/Reps</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                {isTimeBased ? 'Intensidade/Vel.' : 'Séries/Reps'}
+              </Label>
               <Input value={reps} onChange={(e) => setReps(e.target.value)} className="h-12 rounded-2xl bg-slate-50 border-none font-bold" />
             </div>
             <div className="grid gap-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Carga (kg)</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                {isTimeBased ? 'Tempo (min)' : 'Carga (kg)'}
+              </Label>
               <Input value={weight} onChange={(e) => setWeight(e.target.value)} className="h-12 rounded-2xl bg-slate-50 border-none font-bold" />
             </div>
           </div>

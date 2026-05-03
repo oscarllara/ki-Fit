@@ -27,6 +27,7 @@ interface Exercise {
   workout_type: string;
   order_index: number;
   superset_id?: string;
+  is_time_based?: boolean;
 }
 
 type WorkoutType = 'A' | 'B' | 'C';
@@ -123,6 +124,7 @@ const Index = () => {
                   videoUrl={ex.video_url}
                   defaultReps={ex.default_reps}
                   defaultWeight={ex.default_weight}
+                  isTimeBased={ex.is_time_based}
                   onEdit={() => { setEditingExercise(ex); setIsDialogOpen(true); }}
                   onDelete={async () => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', ex.id); fetchExercises(user.id); } }}
                   onUpdateStats={handleUpdateStats}
@@ -141,6 +143,7 @@ const Index = () => {
               videoUrl={current.video_url}
               defaultReps={current.default_reps}
               defaultWeight={current.default_weight}
+              isTimeBased={current.is_time_based}
               onEdit={() => { setEditingExercise(current); setIsDialogOpen(true); }}
               onDelete={async () => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', current.id); fetchExercises(user.id); } }}
               onUpdateStats={handleUpdateStats}
@@ -189,11 +192,20 @@ const Index = () => {
       </main>
       {showTimer && <RestTimer onClose={() => setShowTimer(false)} />}
       <ExerciseDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} onSave={async (ex) => {
-        const data = { title: ex.title, name: ex.title, video_url: ex.videoUrl, default_reps: ex.defaultReps, default_weight: ex.defaultWeight, user_id: user.id, workout_type: activeTab };
+        const data = { 
+          title: ex.title, 
+          name: ex.title, 
+          video_url: ex.videoUrl, 
+          default_reps: ex.defaultReps, 
+          default_weight: ex.defaultWeight, 
+          user_id: user.id, 
+          workout_type: activeTab,
+          is_time_based: ex.isTimeBased
+        };
         if (editingExercise) await supabase.from('exercises').update(data).eq('id', editingExercise.id);
         else await supabase.from('exercises').insert([{ ...data, order_index: workouts[activeTab].length }]);
         fetchExercises(user.id); setIsDialogOpen(false);
-      }} initialData={editingExercise} />
+      }} initialData={editingExercise ? { ...editingExercise, videoUrl: editingExercise.video_url, defaultReps: editingExercise.default_reps, defaultWeight: editingExercise.default_weight, isTimeBased: editingExercise.is_time_based } : null} />
       <ProfileDialog isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onSave={async (data) => { await supabase.from('profiles').upsert({ id: user.id, ...data }); setUser(prev => ({ ...prev, ...data })); showSuccess("Perfil atualizado!"); }} initialData={user} />
       <footer className="mt-12"><MadeWithDyad /></footer>
     </div>

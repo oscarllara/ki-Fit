@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Weight, Repeat, Edit2, Trash2, Play, ChevronRight, Star } from 'lucide-react';
+import { CheckCircle2, Weight, Repeat, Edit2, Trash2, Play, ChevronRight, Star, Clock, Zap } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 interface ExerciseProps {
@@ -17,12 +17,13 @@ interface ExerciseProps {
   level?: number;
   completions?: number;
   orderNumber?: number;
+  isTimeBased?: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onUpdateStats: (id: string, completions: number, level: number) => void;
 }
 
-const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level = 1, completions = 0, orderNumber, onEdit, onDelete, onUpdateStats }: ExerciseProps) => {
+const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level = 1, completions = 0, orderNumber, isTimeBased = false, onEdit, onDelete, onUpdateStats }: ExerciseProps) => {
   const [reps, setReps] = useState(defaultReps);
   const [weight, setWeight] = useState(defaultWeight);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -112,7 +113,8 @@ const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level =
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] font-black text-slate-400">
-              <Repeat size={14} className="text-primary" /> Séries/Reps
+              {isTimeBased ? <Zap size={14} className="text-primary" /> : <Repeat size={14} className="text-primary" />} 
+              {isTimeBased ? 'Intensidade' : 'Séries/Reps'}
             </Label>
             <Input 
               type="text" 
@@ -123,7 +125,8 @@ const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level =
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] font-black text-slate-400">
-              <Weight size={14} className="text-primary" /> Carga (kg)
+              {isTimeBased ? <Clock size={14} className="text-primary" /> : <Weight size={14} className="text-primary" />} 
+              {isTimeBased ? 'Tempo (min)' : 'Carga (kg)'}
             </Label>
             <Input 
               type="text" 
