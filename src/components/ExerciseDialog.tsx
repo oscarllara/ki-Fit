@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from '@/lib/supabase';
 import { Search, Sparkles, Check } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Exercise {
   id: string;
@@ -14,6 +15,7 @@ interface Exercise {
   videoUrl: string;
   defaultReps: string;
   defaultWeight: string;
+  workoutType?: string;
 }
 
 interface ExerciseDialogProps {
@@ -21,13 +23,15 @@ interface ExerciseDialogProps {
   onClose: () => void;
   onSave: (exercise: Exercise) => void;
   initialData?: Exercise | null;
+  defaultWorkoutType?: string;
 }
 
-const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialogProps) => {
+const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutType = 'A' }: ExerciseDialogProps) => {
   const [title, setTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [reps, setReps] = useState('3x12');
   const [weight, setWeight] = useState('0');
+  const [workoutType, setWorkoutType] = useState(defaultWorkoutType);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -37,13 +41,15 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
       setVideoUrl(initialData.videoUrl || '');
       setReps(initialData.defaultReps || '3x12');
       setWeight(initialData.defaultWeight || '0');
+      setWorkoutType(initialData.workoutType || defaultWorkoutType);
     } else if (isOpen) {
       setTitle('');
       setVideoUrl('');
       setReps('3x12');
       setWeight('0');
+      setWorkoutType(defaultWorkoutType);
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, defaultWorkoutType]);
 
   const capitalizeWords = (str: string) => {
     return str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
@@ -54,14 +60,12 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
     setTitle(capitalized);
 
     if (val.length > 2) {
-      // Busca exercícios em todo o banco de dados para sugerir
       const { data } = await supabase
         .from('exercises')
         .select('title, video_url')
         .ilike('title', `%${val}%`)
         .limit(10);
       
-      // Filtrar duplicatas por título
       const unique = data?.reduce((acc: any[], current: any) => {
         const x = acc.find(item => item.title.toLowerCase() === current.title.toLowerCase());
         if (!x) return acc.concat([current]);
@@ -90,6 +94,7 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
       videoUrl,
       defaultReps: reps,
       defaultWeight: weight,
+      workoutType: workoutType
     });
     onClose();
   };
@@ -103,6 +108,20 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData }: ExerciseDialog
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-6 py-4">
+          <div className="grid gap-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Tipo de Treino</Label>
+            <Select value={workoutType} onValueChange={setWorkoutType}>
+              <SelectTrigger className="h-12 rounded-2xl bg-slate-50 border-none font-bold">
+                <SelectValue placeholder="Selecione o treino" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-none shadow-xl">
+                <SelectItem value="A" className="font-bold">Treino A</SelectItem>
+                <SelectItem value="B" className="font-bold">Treino B</SelectItem>
+                <SelectItem value="C" className="font-bold">Treino C</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid gap-2 relative">
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nome do Exercício</Label>
             <div className="relative">
