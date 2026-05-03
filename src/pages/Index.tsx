@@ -184,7 +184,7 @@ const Index = () => {
       <UserNav user={user} onLogout={async () => { await supabase.auth.signOut(); navigate('/login'); }} onAdmin={() => navigate('/admin')} onProfileUpdate={() => setIsProfileOpen(true)} isAdmin={user?.email === 'admin@admin.com'} />
       <WorkoutHeader />
       
-      <main className="max-w-4xl mx-auto px-6 -mt-12 relative z-20">
+      <main className="max-w-4xl mx-auto px-6 -mt-16 relative z-20">
         <Tabs defaultValue="A" onValueChange={(v) => setActiveTab(v as WorkoutType)} className="w-full">
           <div className="sticky top-6 z-30 bg-slate-950/80 backdrop-blur-xl py-4 mb-8 rounded-[2rem] px-2">
             <TabsList className="grid w-full grid-cols-4 h-16 rounded-[1.5rem] p-2 bg-white/5 shadow-2xl border border-white/10">
