@@ -53,7 +53,6 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
   };
 
   const handleAddExercise = async (ex: any) => {
-    // Define o order_index como o último da lista atual do tipo selecionado
     const currentTypeExercises = exercises.filter(e => (e.workout_type || 'A') === (ex.workoutType || activeTab));
     const nextOrder = currentTypeExercises.length;
 
@@ -90,15 +89,22 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
     const currentEx = typeExercises[index];
     const otherEx = typeExercises[otherIndex];
 
-    // Swap order_index
-    const { error } = await supabase.from('exercises').upsert([
-      { id: currentEx.id, order_index: otherEx.order_index || otherIndex },
-      { id: otherEx.id, order_index: currentEx.order_index || index }
-    ]);
+    try {
+      // Atualiza os dois exercícios individualmente para evitar problemas com campos NOT NULL
+      const { error: err1 } = await supabase
+        .from('exercises')
+        .update({ order_index: otherIndex })
+        .eq('id', currentEx.id);
 
-    if (!error) {
+      const { error: err2 } = await supabase
+        .from('exercises')
+        .update({ order_index: index })
+        .eq('id', otherEx.id);
+
+      if (err1 || err2) throw new Error("Falha na atualização");
+
       fetchExercises();
-    } else {
+    } catch (err) {
       showError("Erro ao reordenar");
     }
   };
