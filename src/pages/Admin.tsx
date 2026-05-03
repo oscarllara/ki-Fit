@@ -4,12 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
-  Users, ShieldCheck, ArrowLeft, Plus, 
-  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw, X, Calendar
+  Users, ShieldCheck, ArrowLeft, Plus, Edit,
+  TrendingUp, Wallet, AlertCircle, CheckCircle2, UserPlus, RefreshCw, X, Calendar, Phone, User
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import ExerciseDialog from '@/components/ExerciseDialog';
 import StudentDialog from '@/components/StudentDialog';
 import StudentDetailsSheet from '@/components/StudentDetailsSheet';
@@ -58,6 +60,10 @@ const Admin = () => {
   const [viewingUser, setViewingUser] = useState<any>(null);
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
+  
+  // Estado para edição de perfil pelo admin
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -101,10 +107,26 @@ const Admin = () => {
     const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', userId);
     if (error) {
       showError("Erro ao salvar: " + error.message);
-      fetchData(); // Recarrega para voltar ao estado anterior
+      fetchData();
     } else {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, [field]: value } : u));
       showSuccess("Atualizado com sucesso!");
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!editingUser) return;
+    const { error } = await supabase.from('profiles').update({
+      full_name: editingUser.full_name,
+      phone: editingUser.phone
+    }).eq('id', editingUser.id);
+
+    if (!error) {
+      showSuccess("Perfil atualizado!");
+      setIsEditProfileOpen(false);
+      fetchData();
+    } else {
+      showError("Erro ao atualizar perfil");
     }
   };
 
@@ -296,6 +318,9 @@ const Admin = () => {
                       </div>
                     </button>
                     <div className="flex items-center gap-3 w-full md:w-auto">
+                      <Button variant="outline" size="icon" onClick={() => { setEditingUser(user); setIsEditProfileOpen(true); }} className="rounded-xl h-10 w-10 border-slate-200">
+                        <Edit size={16} className="text-slate-600" />
+                      </Button>
                       <button onClick={() => updateField(user.id, 'subscription_status', user.subscription_status === 'Ativo' ? 'Inativo' : 'Ativo')} className={`px-4 py-2 rounded-full text-[10px] font-black uppercase transition-all ${user.subscription_status === 'Ativo' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                         {user.subscription_status === 'Ativo' ? 'ATIVO' : 'INATIVO'}
                       </button>
@@ -310,6 +335,44 @@ const Admin = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Dialog de Edição de Perfil pelo Admin */}
+      <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
+        <DialogContent className="sm:max-w-[400px] rounded-[2.5rem] border-none shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black tracking-tighter text-slate-800">Editar Aluno</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="grid gap-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nome Completo</Label>
+              <div className="relative">
+                <Input 
+                  value={editingUser?.full_name || ''} 
+                  onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})} 
+                  className="h-12 rounded-2xl bg-slate-50 border-none font-bold pl-10"
+                />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">WhatsApp</Label>
+              <div className="relative">
+                <Input 
+                  value={editingUser?.phone || ''} 
+                  onChange={(e) => setEditingUser({...editingUser, phone: e.target.value})} 
+                  className="h-12 rounded-2xl bg-slate-50 border-none font-bold pl-10"
+                />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateProfile} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20">
+              Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={async (ex) => {
         const { error } = await supabase.from('exercises').insert([{ ...ex, user_id: selectedUser.id, workout_type: 'A' }]);
