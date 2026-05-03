@@ -4,38 +4,38 @@
 
 @layer base {
   :root {
-    /* Fundo Carvão Profundo */
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    /* Fundo Preto Absoluto */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
 
-    /* Cards em tom de cinza muito escuro */
-    --card: 217 33% 17%;
-    --card-foreground: 210 40% 98%;
+    /* Cards em tom de cinza grafite muito escuro */
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 100%;
 
-    /* Amarelo Vibrante (Energia) */
-    --primary: 48 96% 53%;
-    --primary-foreground: 222 47% 11%;
+    /* Verde Limão Neon (Energia Pura) */
+    --primary: 75 100% 50%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 48 96% 53%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 75 100% 50%;
+    --accent-foreground: 0 0% 0%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 25%;
-    --input: 217 33% 25%;
-    --ring: 48 96% 53%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 75 100% 50%;
 
-    --radius: 1.5rem;
+    --radius: 1.25rem;
   }
 }
 
@@ -45,18 +45,18 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: 'Inter', sans-serif;
   }
 }
 
 .exercise-card-enter {
-  animation: slideUp 0.4s ease-out forwards;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(30px);
   }
   to {
     opacity: 1;
@@ -64,16 +64,11 @@
   }
 }
 
-/* Custom Scrollbar para o tema escuro */
-::-webkit-scrollbar {
-  width: 8px;
+/* Efeito de brilho neon */
+.neon-glow {
+  box-shadow: 0 0 15px hsla(75, 100%, 50%, 0.3);
 }
-::-webkit-scrollbar-track {
-  @apply bg-background;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-muted rounded-full;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-600;
+
+.neon-text {
+  text-shadow: 0 0 10px hsla(75, 100%, 50%, 0.5);
 }

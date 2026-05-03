@@ -6,8 +6,9 @@ import { supabase } from '@/lib/supabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Instagram, Facebook, Linkedin, ArrowRight, Zap, Lock, Camera, Plus, Loader2, Dumbbell } from 'lucide-react';
+import { Instagram, Facebook, Linkedin, ArrowRight, Lock, Camera, Plus, Loader2 } from 'lucide-react';
 import SocialInput from '@/components/SocialInput';
+import Logo from '@/components/Logo';
 import { showSuccess, showError } from '@/utils/toast';
 
 const Login = () => {
@@ -145,53 +146,54 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 md:p-6">
-      <div className="w-full max-w-md space-y-6 md:space-y-8">
-        <div className="text-center space-y-2">
-          <div className="bg-primary w-16 h-16 md:w-20 md:h-20 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl shadow-primary/20 mb-6 relative">
-            <Dumbbell className="text-slate-950" size={32} />
-            <Zap className="text-slate-950 fill-slate-950 absolute -top-1 -right-1" size={16} />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-white uppercase">
-            Ki Body <span className="text-primary">Fit</span>
-          </h1>
-          <p className="text-slate-400 text-sm md:text-base font-medium">
-            {isNewUser ? "Complete seu cadastro" : "Sua jornada fitness começa agora"}
-          </p>
-        </div>
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 md:p-6 relative overflow-hidden">
+      {/* Efeito de luz de fundo */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+      
+      <div className="w-full max-w-md space-y-12 relative z-10">
+        <Logo size="lg" />
 
-        <div className="bg-white/5 p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] border border-white/10 space-y-6 backdrop-blur-xl">
+        <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/10 space-y-6 backdrop-blur-2xl shadow-2xl">
+          <div className="text-center space-y-1">
+            <h2 className="text-xl font-black text-white uppercase tracking-tight">
+              {isNewUser ? "Complete seu cadastro" : "Acesse sua conta"}
+            </h2>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
+              {isNewUser ? "Seja bem-vindo à elite" : "Pronto para o próximo nível?"}
+            </p>
+          </div>
+
           {step === 1 ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">E-mail</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">E-mail</Label>
                 <Input 
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="h-12 rounded-2xl border-none bg-white/5 text-white shadow-sm font-bold"
+                  className="h-12 rounded-2xl border-none bg-white/5 text-white shadow-sm font-bold focus:ring-primary/50"
                   placeholder="seu@email.com"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Senha</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Senha</Label>
                 <div className="relative">
                   <Input 
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
-                    className="h-12 rounded-2xl border-none bg-white/5 text-white shadow-sm font-bold pl-10"
+                    className="h-12 rounded-2xl border-none bg-white/5 text-white shadow-sm font-bold pl-10 focus:ring-primary/50"
                     placeholder="••••••••"
                   />
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
                 </div>
               </div>
               <Button 
                 onClick={handleInitialCheck} 
                 disabled={loading}
-                className="w-full h-14 rounded-2xl font-black uppercase tracking-widest mt-4 shadow-lg shadow-primary/20 bg-primary text-slate-950 hover:bg-primary/90"
+                className="w-full h-14 rounded-2xl font-black uppercase tracking-widest mt-4 shadow-lg shadow-primary/20 bg-primary text-black hover:bg-primary/90 transition-all hover:scale-[1.02]"
               >
-                {loading ? <Loader2 className="animate-spin" /> : "Acessar App"} <ArrowRight className="ml-2" size={18} />
+                {loading ? <Loader2 className="animate-spin" /> : "Entrar no Treino"} <ArrowRight className="ml-2" size={18} />
               </Button>
             </div>
           ) : step === 2 ? (
@@ -208,22 +210,22 @@ const Login = () => {
                   className="relative group cursor-pointer" 
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white/5 flex items-center justify-center overflow-hidden border-4 border-white/10 shadow-xl">
+                  <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center overflow-hidden border-4 border-primary/20 shadow-xl group-hover:border-primary transition-all">
                     {formData.avatar_url ? (
                       <img src={formData.avatar_url} className="w-full h-full object-cover" alt="Preview" />
                     ) : (
                       <Camera className="text-slate-500" size={24} />
                     )}
                   </div>
-                  <div className="absolute bottom-0 right-0 bg-primary p-2 rounded-full text-slate-950 shadow-md">
+                  <div className="absolute bottom-0 right-0 bg-primary p-2 rounded-full text-black shadow-md">
                     <Plus size={14} />
                   </div>
                 </div>
-                <p className="text-[10px] font-black text-slate-400 mt-3 uppercase tracking-widest">Toque para escolher foto</p>
+                <p className="text-[10px] font-black text-slate-500 mt-3 uppercase tracking-widest">Sua foto de perfil</p>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nome Completo</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Nome Completo</Label>
                 <Input 
                   value={formData.nome}
                   onChange={(e) => setFormData({...formData, nome: capitalizeName(e.target.value)})}
@@ -232,7 +234,7 @@ const Login = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">WhatsApp</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">WhatsApp</Label>
                 <Input 
                   ref={phoneRef}
                   value={formData.telefone}
@@ -241,8 +243,8 @@ const Login = () => {
                   placeholder="+55 (00) 00000-0000"
                 />
               </div>
-              <Button onClick={() => setStep(3)} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary text-slate-950 hover:bg-primary/90">
-                Redes Sociais <ArrowRight className="ml-2" size={18} />
+              <Button onClick={() => setStep(3)} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary text-black hover:bg-primary/90">
+                Próximo Passo <ArrowRight className="ml-2" size={18} />
               </Button>
             </div>
           ) : (
@@ -263,9 +265,9 @@ const Login = () => {
                 icon={<Linkedin size={14} />}
               />
               <div className="flex flex-col md:flex-row gap-3 pt-4">
-                <Button variant="ghost" onClick={() => setStep(2)} className="h-14 rounded-2xl font-bold text-slate-400 order-2 md:order-1 hover:bg-white/5">Voltar</Button>
-                <Button onClick={handleSignUp} disabled={loading} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary text-slate-950 hover:bg-primary/90 order-1 md:order-2">
-                  {loading ? <Loader2 className="animate-spin" /> : 'Finalizar'}
+                <Button variant="ghost" onClick={() => setStep(2)} className="h-14 rounded-2xl font-bold text-slate-500 order-2 md:order-1 hover:bg-white/5">Voltar</Button>
+                <Button onClick={handleSignUp} disabled={loading} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary text-black hover:bg-primary/90 order-1 md:order-2">
+                  {loading ? <Loader2 className="animate-spin" /> : 'Finalizar Cadastro'}
                 </Button>
               </div>
             </div>
