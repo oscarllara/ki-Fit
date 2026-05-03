@@ -194,11 +194,48 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
+  const handleSaveExercise = async (ex: any) => {
+    const data: any = { 
+      title: ex.title, 
+      name: ex.title, 
+      video_url: ex.videoUrl, 
+      default_reps: ex.defaultReps, 
+      default_weight: ex.defaultWeight, 
+      user_id: student.id, 
+      workout_type: ex.workoutType || activeTab 
+    };
+
+    if (editingExercise) {
+      await supabase.from('exercises').update(data).eq('id', editingExercise.id);
+    } else {
+      const typeExercises = exercises.filter(e => (e.workout_type || 'A') === (ex.workoutType || activeTab));
+      data.order_index = typeExercises.length;
+
+      // Lógica de agrupamento automático
+      if (ex.groupWithPrevious && typeExercises.length > 0) {
+        const lastEx = typeExercises[typeExercises.length - 1];
+        if (lastEx.superset_id) {
+          data.superset_id = lastEx.superset_id;
+        } else {
+          const newSupersetId = crypto.randomUUID();
+          // Atualiza o anterior para ter o mesmo ID
+          await supabase.from('exercises').update({ superset_id: newSupersetId }).eq('id', lastEx.id);
+          data.superset_id = newSupersetId;
+        }
+      }
+      
+      await supabase.from('exercises').insert([data]);
+    }
+    
+    fetchExercises();
+    setIsDialogOpen(false);
+    setEditingExercise(null);
+  };
+
   if (!student) return null;
   
   const filtered = exercises.filter(ex => (ex.workout_type || 'A') === activeTab);
 
-  // Lógica para renderizar itens agrupados ou isolados
   const renderExerciseList = () => {
     const rendered: React.ReactNode[] = [];
     let i = 0;
@@ -207,7 +244,6 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       const current = filtered[i];
       
       if (current.superset_id) {
-        // Encontrar todos os exercícios do mesmo grupo que estão em sequência
         const group = [current];
         let j = i + 1;
         while (j < filtered.length && filtered[j].superset_id === current.superset_id) {
@@ -314,12 +350,13 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
           </div>
         </SheetContent>
       </Sheet>
-      <ExerciseDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} onSave={async (ex) => {
-        const data = { title: ex.title, name: ex.title, video_url: ex.videoUrl, default_reps: ex.defaultReps, default_weight: ex.defaultWeight, user_id: student.id, workout_type: activeTab };
-        if (editingExercise) await supabase.from('exercises').update(data).eq('id', editingExercise.id);
-        else await supabase.from('exercises').insert([{ ...data, order_index: filtered.length }]);
-        fetchExercises(); setIsDialogOpen(false);
-      }} initialData={editingExercise} defaultWorkoutType={activeTab} />
+      <ExerciseDialog 
+        isOpen={isDialogOpen} 
+        onClose={() => { setIsDialogOpen(false); setEditingExercise(null); }} 
+        onSave={handleSaveExercise} 
+        initialData={editingExercise} 
+        defaultWorkoutType={activeTab} 
+      />
     </>
   );
 };

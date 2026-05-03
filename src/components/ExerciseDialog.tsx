@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from '@/lib/supabase';
-import { Search, Sparkles, Check } from 'lucide-react';
+import { Search, Sparkles, Check, Link as LinkIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Exercise {
   id: string;
@@ -16,6 +17,7 @@ interface Exercise {
   defaultReps: string;
   defaultWeight: string;
   workoutType?: string;
+  groupWithPrevious?: boolean;
 }
 
 interface ExerciseDialogProps {
@@ -32,6 +34,7 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
   const [reps, setReps] = useState('3x12');
   const [weight, setWeight] = useState('0');
   const [workoutType, setWorkoutType] = useState(defaultWorkoutType);
+  const [groupWithPrevious, setGroupWithPrevious] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -42,12 +45,14 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
       setReps(initialData.defaultReps || '3x12');
       setWeight(initialData.defaultWeight || '0');
       setWorkoutType(initialData.workoutType || defaultWorkoutType);
+      setGroupWithPrevious(false);
     } else if (isOpen) {
       setTitle('');
       setVideoUrl('');
       setReps('3x12');
       setWeight('0');
       setWorkoutType(defaultWorkoutType);
+      setGroupWithPrevious(false);
     }
   }, [initialData, isOpen, defaultWorkoutType]);
 
@@ -94,7 +99,8 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
       videoUrl,
       defaultReps: reps,
       defaultWeight: weight,
-      workoutType: workoutType
+      workoutType: workoutType,
+      groupWithPrevious: groupWithPrevious
     });
     onClose();
   };
@@ -174,6 +180,20 @@ const ExerciseDialog = ({ isOpen, onClose, onSave, initialData, defaultWorkoutTy
               <Input value={weight} onChange={(e) => setWeight(e.target.value)} className="h-12 rounded-2xl bg-slate-50 border-none font-bold" />
             </div>
           </div>
+
+          {!initialData && (
+            <div className="flex items-center space-x-3 bg-primary/5 p-4 rounded-2xl border border-dashed border-primary/20">
+              <Checkbox 
+                id="group" 
+                checked={groupWithPrevious} 
+                onCheckedChange={(checked) => setGroupWithPrevious(!!checked)}
+                className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              />
+              <label htmlFor="group" className="text-xs font-bold text-slate-600 cursor-pointer flex items-center gap-2">
+                <LinkIcon size={14} className="text-primary" /> Intercalar com o exercício anterior
+              </label>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button onClick={handleSave} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20">
