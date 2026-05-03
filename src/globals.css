@@ -4,36 +4,38 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    /* Fundo Carvão Profundo */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Cards em tom de cinza muito escuro */
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
 
-    /* Um azul/índigo mais vibrante e moderno */
-    --primary: 230 85% 60%;
-    --primary-foreground: 210 40% 98%;
+    /* Amarelo Vibrante (Energia) */
+    --primary: 48 96% 53%;
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 230 85% 60%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 48 96% 53%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 230 85% 60%;
+    --border: 217 33% 25%;
+    --input: 217 33% 25%;
+    --ring: 48 96% 53%;
 
-    --radius: 1.25rem;
+    --radius: 1.5rem;
   }
 }
 
@@ -47,7 +49,6 @@
   }
 }
 
-/* Animações suaves para os cards */
 .exercise-card-enter {
   animation: slideUp 0.4s ease-out forwards;
 }
@@ -61,4 +62,18 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Custom Scrollbar para o tema escuro */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-600;
 }
