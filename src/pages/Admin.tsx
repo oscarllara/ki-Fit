@@ -61,7 +61,6 @@ const Admin = () => {
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
   
-  // Estado para edição de perfil pelo admin
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
 
@@ -336,7 +335,6 @@ const Admin = () => {
         </Tabs>
       </main>
 
-      {/* Dialog de Edição de Perfil pelo Admin */}
       <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
         <DialogContent className="sm:max-w-[400px] rounded-[2.5rem] border-none shadow-2xl">
           <DialogHeader>
@@ -375,9 +373,24 @@ const Admin = () => {
       </Dialog>
 
       <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={async (ex) => {
-        const { error } = await supabase.from('exercises').insert([{ ...ex, user_id: selectedUser.id, workout_type: 'A' }]);
-        if (!error) { showSuccess("Treino adicionado!"); setIsExerciseDialogOpen(false); }
-        else showError("Erro ao salvar treino: " + error.message);
+        // Corrigindo o mapeamento de campos para o banco de dados
+        const exerciseData = {
+          title: ex.title,
+          name: ex.title,
+          video_url: ex.videoUrl,
+          default_reps: ex.defaultReps,
+          default_weight: ex.defaultWeight,
+          user_id: selectedUser.id,
+          workout_type: 'A'
+        };
+        
+        const { error } = await supabase.from('exercises').insert([exerciseData]);
+        if (!error) { 
+          showSuccess("Treino adicionado!"); 
+          setIsExerciseDialogOpen(false); 
+        } else {
+          showError("Erro ao salvar treino: " + error.message);
+        }
       }} />
       <StudentDialog isOpen={isStudentDialogOpen} onClose={() => setIsStudentDialogOpen(false)} onSave={async (d) => { fetchData(); }} />
       <StudentDetailsSheet student={viewingUser} isOpen={!!viewingUser} onClose={() => setViewingUser(null)} />
