@@ -12,7 +12,7 @@ import RestTimer from '@/components/RestTimer';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles, RefreshCw, Link as LinkIcon } from 'lucide-react';
+import { Plus, Sparkles, RefreshCw, Link as LinkIcon, Layers } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import confetti from 'canvas-confetti';
 
@@ -91,6 +91,68 @@ const Index = () => {
     }
   };
 
+  const renderWorkoutContent = (type: WorkoutType) => {
+    const list = workouts[type];
+    const rendered: React.ReactNode[] = [];
+    let i = 0;
+
+    while (i < list.length) {
+      const current = list[i];
+      
+      if (current.superset_id) {
+        const group = [current];
+        let j = i + 1;
+        while (j < list.length && list[j].superset_id === current.superset_id) {
+          group.push(list[j]);
+          j++;
+        }
+
+        const groupType = group.length === 2 ? 'BI-SET' : group.length === 3 ? 'TRI-SET' : 'CIRCUITO';
+
+        rendered.push(
+          <div key={`group-${current.superset_id}`} className="col-span-full bg-primary/5 border-2 border-dashed border-primary/20 rounded-[3rem] p-4 md:p-6 space-y-6 relative mt-4">
+            <div className="absolute -top-4 left-8 bg-primary text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl z-10">
+              <Layers size={14} /> {groupType} INTERCALADO
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {group.map((ex, gIdx) => (
+                <ExerciseCard 
+                  key={ex.id}
+                  {...ex}
+                  orderNumber={i + gIdx + 1}
+                  videoUrl={ex.video_url}
+                  defaultReps={ex.default_reps}
+                  defaultWeight={ex.default_weight}
+                  onEdit={() => { setEditingExercise(ex); setIsDialogOpen(true); }}
+                  onDelete={async () => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', ex.id); fetchExercises(user.id); } }}
+                  onUpdateStats={handleUpdateStats}
+                />
+              ))}
+            </div>
+          </div>
+        );
+        i = j;
+      } else {
+        rendered.push(
+          <div key={current.id} className="exercise-card-enter">
+            <ExerciseCard 
+              {...current}
+              orderNumber={i + 1}
+              videoUrl={current.video_url}
+              defaultReps={current.default_reps}
+              defaultWeight={current.default_weight}
+              onEdit={() => { setEditingExercise(current); setIsDialogOpen(true); }}
+              onDelete={async () => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', current.id); fetchExercises(user.id); } }}
+              onUpdateStats={handleUpdateStats}
+            />
+          </div>
+        );
+        i++;
+      }
+    }
+    return rendered;
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <UserNav user={user} onLogout={async () => { await supabase.auth.signOut(); navigate('/login'); }} onAdmin={() => navigate('/admin')} onProfileUpdate={() => setIsProfileOpen(true)} isAdmin={user?.email === 'admin@admin.com'} />
@@ -119,31 +181,7 @@ const Index = () => {
               </div>
               
               <div className="grid gap-8 sm:grid-cols-2">
-                {workouts[type].map((ex, index) => {
-                  const isSuperset = !!ex.superset_id;
-                  const nextIsSameSuperset = workouts[type][index + 1]?.superset_id === ex.superset_id;
-                  const prevIsSameSuperset = workouts[type][index - 1]?.superset_id === ex.superset_id;
-
-                  return (
-                    <div key={ex.id} className={`exercise-card-enter relative ${isSuperset ? 'p-1 rounded-[2.8rem] bg-primary/5 border-2 border-dashed border-primary/20' : ''}`}>
-                      {isSuperset && !prevIsSameSuperset && (
-                        <div className="absolute -top-3 left-6 z-30 bg-primary text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg">
-                          <LinkIcon size={10} /> Intercalado
-                        </div>
-                      )}
-                      <ExerciseCard 
-                        {...ex}
-                        orderNumber={index + 1}
-                        videoUrl={ex.video_url}
-                        defaultReps={ex.default_reps}
-                        defaultWeight={ex.default_weight}
-                        onEdit={() => { setEditingExercise(ex); setIsDialogOpen(true); }}
-                        onDelete={async () => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', ex.id); fetchExercises(user.id); } }}
-                        onUpdateStats={handleUpdateStats}
-                      />
-                    </div>
-                  );
-                })}
+                {renderWorkoutContent(type)}
               </div>
             </TabsContent>
           ))}

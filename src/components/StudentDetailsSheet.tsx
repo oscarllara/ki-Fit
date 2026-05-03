@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from '@/lib/supabase';
-import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, Edit2, GripVertical, Link as LinkIcon, Unlink } from 'lucide-react';
+import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, Edit2, GripVertical, Link as LinkIcon, Unlink, Layers } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import ExerciseDialog from './ExerciseDialog';
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,7 +39,7 @@ interface StudentDetailsSheetProps {
   onClose: () => void;
 }
 
-const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, isOverlay = false, isSelected, onSelect }: any) => {
+const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, isOverlay = false, isSelected, onSelect, isPartOfGroup = false }: any) => {
   const {
     attributes,
     listeners,
@@ -58,7 +58,7 @@ const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, isOverlay = false, is
 
   const content = (
     <div 
-      className={`flex items-center justify-between p-4 bg-white rounded-2xl group border ${isOverlay ? 'border-primary shadow-2xl' : 'border-slate-100 shadow-sm'} ${ex.superset_id ? 'border-l-4 border-l-primary' : ''} hover:border-primary/20 transition-all`}
+      className={`flex items-center justify-between p-4 bg-white rounded-2xl group border ${isOverlay ? 'border-primary shadow-2xl' : isPartOfGroup ? 'border-none' : 'border-slate-100 shadow-sm'} hover:bg-slate-50/50 transition-all`}
     >
       <div className="flex items-center gap-3">
         {!isOverlay && (
@@ -77,9 +77,8 @@ const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, isOverlay = false, is
         </div>
         <div>
           <p className="font-black text-slate-800 text-sm">
-            <span className="text-primary font-black mr-1">#{idx + 1}</span>
+            {!isPartOfGroup && <span className="text-primary font-black mr-1">#{idx + 1}</span>}
             {ex.title || ex.name}
-            {ex.superset_id && <span className="ml-2 text-[8px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full uppercase tracking-tighter">Intercalado</span>}
           </p>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
             {ex.default_reps} • {ex.default_weight}kg
@@ -196,7 +195,61 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
   };
 
   if (!student) return null;
+  
   const filtered = exercises.filter(ex => (ex.workout_type || 'A') === activeTab);
+
+  // Lógica para renderizar itens agrupados ou isolados
+  const renderExerciseList = () => {
+    const rendered: React.ReactNode[] = [];
+    let i = 0;
+
+    while (i < filtered.length) {
+      const current = filtered[i];
+      
+      if (current.superset_id) {
+        // Encontrar todos os exercícios do mesmo grupo que estão em sequência
+        const group = [current];
+        let j = i + 1;
+        while (j < filtered.length && filtered[j].superset_id === current.superset_id) {
+          group.push(filtered[j]);
+          j++;
+        }
+
+        const groupType = group.length === 2 ? 'BI-SET' : group.length === 3 ? 'TRI-SET' : 'CIRCUITO';
+
+        rendered.push(
+          <div key={`group-${current.superset_id}`} className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-[2.5rem] p-2 space-y-1 relative">
+            <div className="absolute -top-3 left-6 bg-primary text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg z-10">
+              <Layers size={10} /> {groupType}
+            </div>
+            {group.map((ex, gIdx) => (
+              <SortableExerciseItem 
+                key={ex.id} ex={ex} idx={i + gIdx} 
+                isSelected={selectedIds.includes(ex.id)}
+                onSelect={toggleSelect}
+                isPartOfGroup={true}
+                onEdit={(e: any) => { setEditingExercise({...e, videoUrl: e.video_url, defaultReps: e.default_reps, defaultWeight: e.default_weight}); setIsDialogOpen(true); }}
+                onDelete={async (id: string) => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', id); fetchExercises(); } }}
+              />
+            ))}
+          </div>
+        );
+        i = j;
+      } else {
+        rendered.push(
+          <SortableExerciseItem 
+            key={current.id} ex={current} idx={i} 
+            isSelected={selectedIds.includes(current.id)}
+            onSelect={toggleSelect}
+            onEdit={(e: any) => { setEditingExercise({...e, videoUrl: e.video_url, defaultReps: e.default_reps, defaultWeight: e.default_weight}); setIsDialogOpen(true); }}
+            onDelete={async (id: string) => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', id); fetchExercises(); } }}
+          />
+        );
+        i++;
+      }
+    }
+    return rendered;
+  };
 
   return (
     <>
@@ -248,16 +301,8 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
 
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e) => setActiveId(e.active.id as string)} onDragEnd={handleDragEnd}>
                   <SortableContext items={filtered.map(ex => ex.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-3">
-                      {filtered.map((ex, idx) => (
-                        <SortableExerciseItem 
-                          key={ex.id} ex={ex} idx={idx} 
-                          isSelected={selectedIds.includes(ex.id)}
-                          onSelect={toggleSelect}
-                          onEdit={(e: any) => { setEditingExercise({...e, videoUrl: e.video_url, defaultReps: e.default_reps, defaultWeight: e.default_weight}); setIsDialogOpen(true); }}
-                          onDelete={async (id: string) => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', id); fetchExercises(); } }}
-                        />
-                      ))}
+                    <div className="space-y-4">
+                      {renderExerciseList()}
                     </div>
                   </SortableContext>
                   <DragOverlay>
