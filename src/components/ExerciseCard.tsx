@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,33 +16,26 @@ interface ExerciseProps {
   defaultWeight: string;
   level?: number;
   completions?: number;
+  orderNumber?: number;
   onEdit: () => void;
   onDelete: () => void;
   onUpdateStats: (id: string, completions: number, level: number) => void;
 }
 
-const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level = 1, completions = 0, onEdit, onDelete, onUpdateStats }: ExerciseProps) => {
+const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level = 1, completions = 0, orderNumber, onEdit, onDelete, onUpdateStats }: ExerciseProps) => {
   const [reps, setReps] = useState(defaultReps);
   const [weight, setWeight] = useState(defaultWeight);
   const [isCompleted, setIsCompleted] = useState(false);
 
   const getYouTubeId = (url: string) => {
     if (!url) return null;
-    
-    // Regex ultra robusta para capturar IDs do YouTube em qualquer formato
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
     const match = url.match(regExp);
     const id = (match && match[7].length === 11) ? match[7] : null;
-    
     if (id) return id;
-
-    // Fallback para links de Shorts ou outros formatos
     const shortsMatch = url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
     if (shortsMatch) return shortsMatch[1];
-
-    // Se o usuário colou apenas o ID
     if (url.length === 11 && !url.includes('/') && !url.includes('.')) return url;
-
     return null;
   };
 
@@ -107,7 +100,10 @@ const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level =
       
       <CardHeader className="pb-4 pt-6 px-6">
         <CardTitle className="flex justify-between items-start text-xl font-black leading-tight tracking-tight text-slate-800">
-          <span className="max-w-[85%]">{title}</span>
+          <span className="max-w-[85%] flex items-center gap-2">
+            {orderNumber && <span className="text-primary/40 text-sm font-black">#{orderNumber}</span>}
+            {title}
+          </span>
           {isCompleted && <CheckCircle2 className="text-green-500 shrink-0 mt-1" size={24} />}
         </CardTitle>
       </CardHeader>

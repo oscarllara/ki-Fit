@@ -201,6 +201,7 @@ const Index = () => {
                   <div key={ex.id} className="exercise-card-enter" style={{ animationDelay: `${index * 0.1}s` }}>
                     <ExerciseCard 
                       {...ex}
+                      orderNumber={index + 1}
                       videoUrl={ex.video_url}
                       defaultReps={ex.default_reps}
                       defaultWeight={ex.default_weight}

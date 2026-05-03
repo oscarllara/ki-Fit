@@ -90,7 +90,6 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
     const otherEx = typeExercises[otherIndex];
 
     try {
-      // Atualiza os dois exercícios individualmente para evitar problemas com campos NOT NULL
       const { error: err1 } = await supabase
         .from('exercises')
         .update({ order_index: otherIndex })
@@ -208,7 +207,10 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
                               </Button>
                             </div>
                             <div>
-                              <p className="font-black text-slate-800 text-sm">{ex.title || ex.name}</p>
+                              <p className="font-black text-slate-800 text-sm">
+                                <span className="text-primary/40 mr-1">#{idx + 1}</span>
+                                {ex.title || ex.name}
+                              </p>
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                 {ex.default_reps} • {ex.default_weight}kg
                               </p>
