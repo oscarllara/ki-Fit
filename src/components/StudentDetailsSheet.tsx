@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from '@/lib/supabase';
-import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, ChevronUp, ChevronDown, Edit2 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import ExerciseDialog from './ExerciseDialog';
 
@@ -19,7 +19,8 @@ interface StudentDetailsSheetProps {
 const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetProps) => {
   const [exercises, setExercises] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('A');
 
   useEffect(() => {
@@ -52,10 +53,7 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
     }
   };
 
-  const handleAddExercise = async (ex: any) => {
-    const currentTypeExercises = exercises.filter(e => (e.workout_type || 'A') === (ex.workoutType || activeTab));
-    const nextOrder = currentTypeExercises.length;
-
+  const handleSaveExercise = async (ex: any) => {
     const exerciseData = {
       title: ex.title,
       name: ex.title,
@@ -64,16 +62,32 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       default_weight: ex.defaultWeight,
       user_id: student.id,
       workout_type: ex.workoutType || activeTab,
-      order_index: nextOrder
     };
-    
-    const { error } = await supabase.from('exercises').insert([exerciseData]);
-    if (!error) { 
-      showSuccess("Treino adicionado!"); 
+
+    try {
+      if (editingExercise) {
+        const { error } = await supabase
+          .from('exercises')
+          .update(exerciseData)
+          .eq('id', editingExercise.id);
+        if (error) throw error;
+        showSuccess("Exercício atualizado!");
+      } else {
+        const currentTypeExercises = exercises.filter(e => (e.workout_type || 'A') === (ex.workoutType || activeTab));
+        const nextOrder = currentTypeExercises.length;
+        
+        const { error } = await supabase
+          .from('exercises')
+          .insert([{ ...exerciseData, order_index: nextOrder }]);
+        if (error) throw error;
+        showSuccess("Treino adicionado!");
+      }
+      
       fetchExercises();
-      setIsAddDialogOpen(false);
-    } else {
-      showError("Erro ao salvar treino: " + error.message);
+      setIsDialogOpen(false);
+      setEditingExercise(null);
+    } catch (err: any) {
+      showError("Erro ao salvar: " + err.message);
     }
   };
 
@@ -164,7 +178,7 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
                     <Dumbbell className="text-primary" size={20} /> Treinos
                   </h3>
                   <Button 
-                    onClick={() => setIsAddDialogOpen(true)} 
+                    onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} 
                     size="sm" 
                     className="rounded-xl h-9 font-black text-[10px] uppercase tracking-widest"
                   >
@@ -217,6 +231,14 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
                             </div>
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => { setEditingExercise({ ...ex, videoUrl: ex.video_url, defaultReps: ex.default_reps, defaultWeight: ex.default_weight, workoutType: ex.workout_type }); setIsDialogOpen(true); }} 
+                              className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5"
+                            >
+                              <Edit2 size={14} />
+                            </Button>
                             {ex.video_url && (
                               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
                                 <a href={ex.video_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /></a>
@@ -242,9 +264,10 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       </Sheet>
 
       <ExerciseDialog 
-        isOpen={isAddDialogOpen} 
-        onClose={() => setIsAddDialogOpen(false)} 
-        onSave={handleAddExercise}
+        isOpen={isDialogOpen} 
+        onClose={() => { setIsDialogOpen(false); setEditingExercise(null); }} 
+        onSave={handleSaveExercise}
+        initialData={editingExercise}
         defaultWorkoutType={activeTab}
       />
     </>
