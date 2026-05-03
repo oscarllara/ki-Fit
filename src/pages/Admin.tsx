@@ -373,26 +373,31 @@ const Admin = () => {
       </Dialog>
 
       <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={async (ex) => {
-        // Corrigindo o mapeamento de campos para o banco de dados
         const exerciseData = {
           title: ex.title,
           name: ex.title,
           video_url: ex.videoUrl,
           default_reps: ex.defaultReps,
-          default_weight: ex.defaultWeight,
+          default_weight: ex.default_weight,
           user_id: selectedUser.id,
           workout_type: 'A'
         };
-        
         const { error } = await supabase.from('exercises').insert([exerciseData]);
-        if (!error) { 
-          showSuccess("Treino adicionado!"); 
-          setIsExerciseDialogOpen(false); 
-        } else {
-          showError("Erro ao salvar treino: " + error.message);
-        }
+        if (!error) { showSuccess("Treino adicionado!"); setIsExerciseDialogOpen(false); }
       }} />
-      <StudentDialog isOpen={isStudentDialogOpen} onClose={() => setIsStudentDialogOpen(false)} onSave={async (d) => { fetchData(); }} />
+      <StudentDialog 
+        isOpen={isStudentDialogOpen} 
+        onClose={() => setIsStudentDialogOpen(false)} 
+        onSave={async (d) => { 
+          const { error } = await supabase.functions.invoke('create-student', { body: d });
+          if (error) {
+            showError("Erro ao criar aluno: " + error.message);
+          } else {
+            showSuccess("Aluno criado com sucesso!");
+            fetchData(); 
+          }
+        }} 
+      />
       <StudentDetailsSheet student={viewingUser} isOpen={!!viewingUser} onClose={() => setViewingUser(null)} />
     </div>
   );

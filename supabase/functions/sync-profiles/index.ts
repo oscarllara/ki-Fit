@@ -25,6 +25,13 @@ serve(async (req) => {
 
     // 2. Para cada usuário, garantir que existe um perfil com e-mail
     for (const user of authUsers) {
+      // Verifica se o perfil já existe para não sobrescrever o status
+      const { data: existingProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('subscription_status')
+        .eq('id', user.id)
+        .maybeSingle()
+
       const { error: upsertError } = await supabaseAdmin
         .from('profiles')
         .upsert({
@@ -32,7 +39,7 @@ serve(async (req) => {
           email: user.email,
           full_name: user.user_metadata?.full_name || null,
           phone: user.user_metadata?.phone || null,
-          subscription_status: 'Inativo' // Padrão para novos sincronizados
+          subscription_status: existingProfile?.subscription_status || 'Inativo'
         }, { onConflict: 'id' })
       
       if (!upsertError) syncedCount++
