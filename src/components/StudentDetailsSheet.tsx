@@ -6,9 +6,28 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from '@/lib/supabase';
-import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, ChevronUp, ChevronDown, Edit2 } from 'lucide-react';
+import { Dumbbell, Trash2, ExternalLink, Phone, Mail, Calendar, Plus, Edit2, GripVertical } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import ExerciseDialog from './ExerciseDialog';
+
+// DND Kit Imports
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface StudentDetailsSheetProps {
   student: any;
@@ -16,12 +35,83 @@ interface StudentDetailsSheetProps {
   onClose: () => void;
 }
 
+// Componente de Item Ordenável
+const SortableExerciseItem = ({ ex, idx, onEdit, onDelete }: any) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: ex.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 'auto',
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group border border-transparent hover:border-primary/20 transition-colors"
+    >
+      <div className="flex items-center gap-3">
+        <div 
+          {...attributes} 
+          {...listeners} 
+          className="cursor-grab active:cursor-grabbing p-2 hover:bg-primary/10 rounded-lg text-slate-400 hover:text-primary transition-colors"
+        >
+          <GripVertical size={20} />
+        </div>
+        <div>
+          <p className="font-black text-slate-800 text-sm">
+            <span className="text-primary/40 mr-1">#{idx + 1}</span>
+            {ex.title || ex.name}
+          </p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            {ex.default_reps} • {ex.default_weight}kg
+          </p>
+        </div>
+      </div>
+      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => onEdit(ex)} 
+          className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5"
+        >
+          <Edit2 size={14} />
+        </Button>
+        {ex.video_url && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
+            <a href={ex.video_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /></a>
+          </Button>
+        )}
+        <Button variant="ghost" size="icon" onClick={() => onDelete(ex.id)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50">
+          <Trash2 size={14} />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetProps) => {
   const [exercises, setExercises] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('A');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     if (student && isOpen) {
@@ -91,34 +181,40 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
     }
   };
 
-  const moveExercise = async (id: string, direction: 'up' | 'down') => {
-    const type = exercises.find(ex => ex.id === id)?.workout_type || 'A';
-    const typeExercises = exercises.filter(ex => (ex.workout_type || 'A') === type);
-    const index = typeExercises.findIndex(ex => ex.id === id);
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === typeExercises.length - 1) return;
+    if (over && active.id !== over.id) {
+      const typeExercises = exercises.filter(ex => (ex.workout_type || 'A') === activeTab);
+      const oldIndex = typeExercises.findIndex((ex) => ex.id === active.id);
+      const newIndex = typeExercises.findIndex((ex) => ex.id === over.id);
 
-    const otherIndex = direction === 'up' ? index - 1 : index + 1;
-    const currentEx = typeExercises[index];
-    const otherEx = typeExercises[otherIndex];
+      const reorderedTypeExercises = arrayMove(typeExercises, oldIndex, newIndex);
+      
+      // Atualiza o estado local imediatamente para feedback visual
+      const updatedAllExercises = exercises.map(ex => {
+        if ((ex.workout_type || 'A') === activeTab) {
+          const found = reorderedTypeExercises.find(re => re.id === ex.id);
+          return found ? { ...ex, order_index: reorderedTypeExercises.indexOf(found) } : ex;
+        }
+        return ex;
+      }).sort((a, b) => {
+        if (a.workout_type !== b.workout_type) return 0;
+        return a.order_index - b.order_index;
+      });
 
-    try {
-      const { error: err1 } = await supabase
-        .from('exercises')
-        .update({ order_index: otherIndex })
-        .eq('id', currentEx.id);
+      setExercises(updatedAllExercises);
 
-      const { error: err2 } = await supabase
-        .from('exercises')
-        .update({ order_index: index })
-        .eq('id', otherEx.id);
-
-      if (err1 || err2) throw new Error("Falha na atualização");
-
-      fetchExercises();
-    } catch (err) {
-      showError("Erro ao reordenar");
+      // Salva a nova ordem no banco de dados
+      try {
+        const updates = reorderedTypeExercises.map((ex, idx) => 
+          supabase.from('exercises').update({ order_index: idx }).eq('id', ex.id)
+        );
+        await Promise.all(updates);
+      } catch (err) {
+        showError("Erro ao salvar nova ordem");
+        fetchExercises(); // Reverte em caso de erro
+      }
     }
   };
 
@@ -197,59 +293,37 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
                     {loading ? (
                       <p className="text-center py-4 text-slate-400 font-bold">Carregando...</p>
                     ) : filteredExercises(type).length > 0 ? (
-                      filteredExercises(type).map((ex, idx, arr) => (
-                        <div key={ex.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group">
-                          <div className="flex items-center gap-3">
-                            <div className="flex flex-col gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 rounded-md hover:bg-primary/10 hover:text-primary disabled:opacity-20"
-                                onClick={() => moveExercise(ex.id, 'up')}
-                                disabled={idx === 0}
-                              >
-                                <ChevronUp size={14} />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 rounded-md hover:bg-primary/10 hover:text-primary disabled:opacity-20"
-                                onClick={() => moveExercise(ex.id, 'down')}
-                                disabled={idx === arr.length - 1}
-                              >
-                                <ChevronDown size={14} />
-                              </Button>
-                            </div>
-                            <div>
-                              <p className="font-black text-slate-800 text-sm">
-                                <span className="text-primary/40 mr-1">#{idx + 1}</span>
-                                {ex.title || ex.name}
-                              </p>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                {ex.default_reps} • {ex.default_weight}kg
-                              </p>
-                            </div>
+                      <DndContext 
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext 
+                          items={filteredExercises(type).map(ex => ex.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-3">
+                            {filteredExercises(type).map((ex, idx) => (
+                              <SortableExerciseItem 
+                                key={ex.id} 
+                                ex={ex} 
+                                idx={idx} 
+                                onEdit={(exercise: any) => {
+                                  setEditingExercise({ 
+                                    ...exercise, 
+                                    videoUrl: exercise.video_url, 
+                                    defaultReps: exercise.default_reps, 
+                                    defaultWeight: exercise.default_weight, 
+                                    workoutType: exercise.workout_type 
+                                  }); 
+                                  setIsDialogOpen(true);
+                                }}
+                                onDelete={deleteExercise}
+                              />
+                            ))}
                           </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => { setEditingExercise({ ...ex, videoUrl: ex.video_url, defaultReps: ex.default_reps, defaultWeight: ex.default_weight, workoutType: ex.workout_type }); setIsDialogOpen(true); }} 
-                              className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5"
-                            >
-                              <Edit2 size={14} />
-                            </Button>
-                            {ex.video_url && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
-                                <a href={ex.video_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /></a>
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="icon" onClick={() => deleteExercise(ex.id)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50">
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </div>
-                      ))
+                        </SortableContext>
+                      </DndContext>
                     ) : (
                       <div className="text-center py-8 border-2 border-dashed border-slate-100 rounded-3xl">
                         <p className="text-slate-400 text-sm font-bold">Nenhum exercício no Treino {type}.</p>
