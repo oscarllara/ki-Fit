@@ -97,7 +97,6 @@ const Index = () => {
       const { id, created_at, ...rest } = ex as any;
       const { error } = await supabase.from('exercises').insert([{
         ...rest,
-        title: `${rest.title} (Cópia)`,
         order_index: workouts[activeTab].length,
         completions: 0,
         level: 1
@@ -227,7 +226,7 @@ const Index = () => {
         else await supabase.from('exercises').insert([{ ...data, order_index: workouts[activeTab].length }]);
         fetchExercises(user.id); setIsDialogOpen(false);
       }} initialData={editingExercise ? { ...editingExercise, videoUrl: editingExercise.video_url, defaultReps: editingExercise.default_reps, defaultWeight: editingExercise.default_weight, isTimeBased: editingExercise.is_time_based } : null} />
-      <ProfileDialog isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onSave={async (data) => { await supabase.from('profiles').upsert({ id: user.id, ...data }); setUser(prev => ({ ...prev, ...data })); showSuccess("Perfil atualizado!"); }} initialData={user} />
+      <ProfileDialog isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onSave={async (data) => { await supabase.from('profiles').upsert({ id: user.id, ...data }); setUser(prev => ({ ...prev, ...data })); showSuccess("Perfil updated!"); }} initialData={user} />
       <footer className="mt-12"><MadeWithDyad /></footer>
     </div>
   );

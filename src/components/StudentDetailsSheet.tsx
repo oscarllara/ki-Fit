@@ -147,7 +147,6 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
       
       const { error } = await supabase.from('exercises').insert([{
         ...rest,
-        title: `${rest.title} (Cópia)`,
         order_index: typeExercises.length,
         completions: 0,
         level: 1
