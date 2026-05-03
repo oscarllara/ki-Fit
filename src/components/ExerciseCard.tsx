@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Weight, Repeat, Edit2, Trash2, Play, ChevronRight, Star, Clock, Zap } from 'lucide-react';
+import { CheckCircle2, Weight, Repeat, Edit2, Trash2, Play, ChevronRight, Star, Clock, Zap, Copy } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 interface ExerciseProps {
@@ -20,10 +20,11 @@ interface ExerciseProps {
   isTimeBased?: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onDuplicate?: () => void;
   onUpdateStats: (id: string, completions: number, level: number) => void;
 }
 
-const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level = 1, completions = 0, orderNumber, isTimeBased = false, onEdit, onDelete, onUpdateStats }: ExerciseProps) => {
+const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level = 1, completions = 0, orderNumber, isTimeBased = false, onEdit, onDelete, onDuplicate, onUpdateStats }: ExerciseProps) => {
   const [reps, setReps] = useState(defaultReps);
   const [weight, setWeight] = useState(defaultWeight);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -90,6 +91,11 @@ const ExerciseCard = ({ id, title, videoUrl, defaultReps, defaultWeight, level =
         </div>
 
         <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-20">
+          {onDuplicate && (
+            <Button size="icon" variant="secondary" className="h-10 w-10 rounded-2xl shadow-xl backdrop-blur-md bg-white/80 hover:bg-white" onClick={onDuplicate}>
+              <Copy size={16} className="text-primary" />
+            </Button>
+          )}
           <Button size="icon" variant="secondary" className="h-10 w-10 rounded-2xl shadow-xl backdrop-blur-md bg-white/80 hover:bg-white" onClick={onEdit}>
             <Edit2 size={16} className="text-slate-700" />
           </Button>

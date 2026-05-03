@@ -92,6 +92,25 @@ const Index = () => {
     }
   };
 
+  const handleDuplicate = async (ex: Exercise) => {
+    try {
+      const { id, created_at, ...rest } = ex as any;
+      const { error } = await supabase.from('exercises').insert([{
+        ...rest,
+        title: `${rest.title} (Cópia)`,
+        order_index: workouts[activeTab].length,
+        completions: 0,
+        level: 1
+      }]);
+      
+      if (error) throw error;
+      showSuccess("Exercício duplicado!");
+      fetchExercises(user.id);
+    } catch (err: any) {
+      showError("Erro ao duplicar");
+    }
+  };
+
   const renderWorkoutContent = (type: WorkoutType) => {
     const list = workouts[type];
     const rendered: React.ReactNode[] = [];
@@ -127,6 +146,7 @@ const Index = () => {
                   isTimeBased={ex.is_time_based}
                   onEdit={() => { setEditingExercise(ex); setIsDialogOpen(true); }}
                   onDelete={async () => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', ex.id); fetchExercises(user.id); } }}
+                  onDuplicate={() => handleDuplicate(ex)}
                   onUpdateStats={handleUpdateStats}
                 />
               ))}
@@ -146,6 +166,7 @@ const Index = () => {
               isTimeBased={current.is_time_based}
               onEdit={() => { setEditingExercise(current); setIsDialogOpen(true); }}
               onDelete={async () => { if(confirm('Excluir?')) { await supabase.from('exercises').delete().eq('id', current.id); fetchExercises(user.id); } }}
+              onDuplicate={() => handleDuplicate(current)}
               onUpdateStats={handleUpdateStats}
             />
           </div>
