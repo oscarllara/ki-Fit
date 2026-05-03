@@ -18,7 +18,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -36,7 +39,7 @@ interface StudentDetailsSheetProps {
 }
 
 // Componente de Item Ordenável
-const SortableExerciseItem = ({ ex, idx, onEdit, onDelete }: any) => {
+const SortableExerciseItem = ({ ex, idx, onEdit, onDelete, isOverlay = false }: any) => {
   const {
     attributes,
     listeners,
@@ -50,14 +53,12 @@ const SortableExerciseItem = ({ ex, idx, onEdit, onDelete }: any) => {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : 'auto',
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.3 : 1,
   };
 
-  return (
+  const content = (
     <div 
-      ref={setNodeRef} 
-      style={style} 
-      className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group border border-transparent hover:border-primary/20 transition-colors"
+      className={`flex items-center justify-between p-4 bg-white rounded-2xl group border ${isOverlay ? 'border-primary shadow-2xl' : 'border-slate-100 shadow-sm'} hover:border-primary/20 transition-all`}
     >
       <div className="flex items-center gap-3">
         <div 
@@ -69,7 +70,7 @@ const SortableExerciseItem = ({ ex, idx, onEdit, onDelete }: any) => {
         </div>
         <div>
           <p className="font-black text-slate-800 text-sm">
-            <span className="text-primary/40 mr-1">#{idx + 1}</span>
+            <span className="text-primary font-black mr-1">#{idx + 1}</span>
             {ex.title || ex.name}
           </p>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -77,24 +78,34 @@ const SortableExerciseItem = ({ ex, idx, onEdit, onDelete }: any) => {
           </p>
         </div>
       </div>
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => onEdit(ex)} 
-          className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5"
-        >
-          <Edit2 size={14} />
-        </Button>
-        {ex.video_url && (
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
-            <a href={ex.video_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /></a>
+      {!isOverlay && (
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => onEdit(ex)} 
+            className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5"
+          >
+            <Edit2 size={14} />
           </Button>
-        )}
-        <Button variant="ghost" size="icon" onClick={() => onDelete(ex.id)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50">
-          <Trash2 size={14} />
-        </Button>
-      </div>
+          {ex.video_url && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
+              <a href={ex.video_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /></a>
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => onDelete(ex.id)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50">
+            <Trash2 size={14} />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
+  if (isOverlay) return content;
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      {content}
     </div>
   );
 };
@@ -105,9 +116,14 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('A');
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -181,8 +197,13 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
     }
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveId(null);
 
     if (over && active.id !== over.id) {
       const typeExercises = exercises.filter(ex => (ex.workout_type || 'A') === activeTab);
@@ -191,29 +212,34 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
 
       const reorderedTypeExercises = arrayMove(typeExercises, oldIndex, newIndex);
       
-      // Atualiza o estado local imediatamente para feedback visual
-      const updatedAllExercises = exercises.map(ex => {
+      // Atualiza o estado local imediatamente com a nova ordem e índices
+      const updatedTypeExercises = reorderedTypeExercises.map((ex, idx) => ({
+        ...ex,
+        order_index: idx
+      }));
+
+      const newAllExercises = exercises.map(ex => {
         if ((ex.workout_type || 'A') === activeTab) {
-          const found = reorderedTypeExercises.find(re => re.id === ex.id);
-          return found ? { ...ex, order_index: reorderedTypeExercises.indexOf(found) } : ex;
+          const found = updatedTypeExercises.find(u => u.id === ex.id);
+          return found || ex;
         }
         return ex;
       }).sort((a, b) => {
-        if (a.workout_type !== b.workout_type) return 0;
+        if (a.workout_type !== b.workout_type) return a.workout_type.localeCompare(b.workout_type);
         return a.order_index - b.order_index;
       });
 
-      setExercises(updatedAllExercises);
+      setExercises(newAllExercises);
 
-      // Salva a nova ordem no banco de dados
+      // Salva no banco de dados
       try {
-        const updates = reorderedTypeExercises.map((ex, idx) => 
-          supabase.from('exercises').update({ order_index: idx }).eq('id', ex.id)
+        const updates = updatedTypeExercises.map((ex) => 
+          supabase.from('exercises').update({ order_index: ex.order_index }).eq('id', ex.id)
         );
         await Promise.all(updates);
       } catch (err) {
         showError("Erro ao salvar nova ordem");
-        fetchExercises(); // Reverte em caso de erro
+        fetchExercises();
       }
     }
   };
@@ -223,6 +249,8 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
   const filteredExercises = (type: string) => {
     return exercises.filter(ex => (ex.workout_type || 'A') === type);
   };
+
+  const activeExercise = activeId ? exercises.find(ex => ex.id === activeId) : null;
 
   return (
     <>
@@ -296,6 +324,7 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
                       <DndContext 
                         sensors={sensors}
                         collisionDetection={closestCenter}
+                        onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                       >
                         <SortableContext 
@@ -323,6 +352,23 @@ const StudentDetailsSheet = ({ student, isOpen, onClose }: StudentDetailsSheetPr
                             ))}
                           </div>
                         </SortableContext>
+                        <DragOverlay dropAnimation={{
+                          sideEffects: defaultDropAnimationSideEffects({
+                            styles: {
+                              active: {
+                                opacity: '0.5',
+                              },
+                            },
+                          }),
+                        }}>
+                          {activeId ? (
+                            <SortableExerciseItem 
+                              ex={activeExercise} 
+                              idx={filteredExercises(activeTab).findIndex(e => e.id === activeId)} 
+                              isOverlay 
+                            />
+                          ) : null}
+                        </DragOverlay>
                       </DndContext>
                     ) : (
                       <div className="text-center py-8 border-2 border-dashed border-slate-100 rounded-3xl">
