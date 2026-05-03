@@ -14,8 +14,7 @@ import ExerciseDialog from '@/components/ExerciseDialog';
 import StudentDialog from '@/components/StudentDialog';
 import StudentDetailsSheet from '@/components/StudentDetailsSheet';
 import { showSuccess, showError } from '@/utils/toast';
-import { format, differenceInMonths, startOfMonth, addMonths } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, differenceInMonths } from 'date-fns';
 
 const CurrencyInput = ({ initialValue, onSave }: { initialValue: number, onSave: (val: number) => void }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -98,28 +97,33 @@ const Admin = () => {
     }
   };
 
+  const updateField = async (userId: string, field: string, value: any) => {
+    const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', userId);
+    if (error) {
+      showError("Erro ao salvar: " + error.message);
+      fetchData(); // Recarrega para voltar ao estado anterior
+    } else {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, [field]: value } : u));
+      showSuccess("Atualizado com sucesso!");
+    }
+  };
+
   const updatePayment = async (user: any, status: string) => {
     const now = new Date();
     const updateData: any = { payment_status: status };
     
     if (status === 'Pago') {
       updateData.last_payment_date = now.toISOString();
-      // Acumula o valor pago ao total histórico
       updateData.total_paid = (Number(user.total_paid) || 0) + (Number(user.monthly_fee) || 0);
     }
 
     const { error } = await supabase.from('profiles').update(updateData).eq('id', user.id);
-    if (!error) {
+    if (error) {
+      showError("Erro ao atualizar pagamento: " + error.message);
+      fetchData();
+    } else {
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...updateData } : u));
       showSuccess(status === 'Pago' ? "Pagamento Confirmado!" : "Pagamento Pendente!");
-    }
-  };
-
-  const updateField = async (userId: string, field: string, value: any) => {
-    const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', userId);
-    if (!error) {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, [field]: value } : u));
-      showSuccess("Atualizado!");
     }
   };
 
@@ -133,13 +137,8 @@ const Admin = () => {
       const joinDate = new Date(u.created_at || now);
       const dueDay = Number(u.due_day) || 10;
       
-      // Calcula meses desde a entrada
       let months = differenceInMonths(now, joinDate) + 1;
-      
-      // Se hoje passou do dia de vencimento, já conta o próximo mês (lógica dia + 1)
-      if (now.getDate() > dueDay) {
-        months += 1;
-      }
+      if (now.getDate() > dueDay) months += 1;
 
       totalPrevisto += (fee * months);
       totalRecebido += (Number(u.total_paid) || 0);
@@ -315,6 +314,7 @@ const Admin = () => {
       <ExerciseDialog isOpen={isExerciseDialogOpen} onClose={() => setIsExerciseDialogOpen(false)} onSave={async (ex) => {
         const { error } = await supabase.from('exercises').insert([{ ...ex, user_id: selectedUser.id, workout_type: 'A' }]);
         if (!error) { showSuccess("Treino adicionado!"); setIsExerciseDialogOpen(false); }
+        else showError("Erro ao salvar treino: " + error.message);
       }} />
       <StudentDialog isOpen={isStudentDialogOpen} onClose={() => setIsStudentDialogOpen(false)} onSave={async (d) => { fetchData(); }} />
       <StudentDetailsSheet student={viewingUser} isOpen={!!viewingUser} onClose={() => setViewingUser(null)} />
