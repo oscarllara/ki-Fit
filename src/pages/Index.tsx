@@ -10,12 +10,14 @@ import ProfileDialog from '@/components/ProfileDialog';
 import PaymentDialog from '@/components/PaymentDialog';
 import UserNav from '@/components/UserNav';
 import RestTimer from '@/components/RestTimer';
+import ProgressStats from '@/components/ProgressStats';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles, RefreshCw, Link as LinkIcon, Layers, Wallet, Calendar, CheckCircle2, AlertCircle, TrendingUp, ArrowRight } from 'lucide-react';
+import { Plus, Sparkles, RefreshCw, Link as LinkIcon, Layers, Wallet, Calendar, CheckCircle2, AlertCircle, TrendingUp, ArrowRight, Play, Square } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { format } from 'date-fns';
+import confetti from 'canvas-confetti';
 
 interface Exercise {
   id: string;
@@ -44,6 +46,22 @@ const Index = () => {
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Estado do Treino Ativo
+  const [isWorkoutActive, setIsWorkoutActive] = useState(false);
+  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [completedInSession, setCompletedInSession] = useState<string[]>([]);
+
+  useEffect(() => {
+    let interval: any;
+    if (isWorkoutActive && workoutStartTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - workoutStartTime) / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isWorkoutActive, workoutStartTime]);
 
   const fetchExercises = async (userId: string) => {
     setLoading(true);
@@ -84,10 +102,47 @@ const Index = () => {
     checkUser();
   }, [navigate]);
 
+  const handleStartWorkout = () => {
+    setIsWorkoutActive(true);
+    setWorkoutStartTime(Date.now());
+    setElapsedTime(0);
+    setCompletedInSession([]);
+    showSuccess("Treino iniciado! Foco total! 💪");
+  };
+
+  const handleFinishWorkout = () => {
+    setIsWorkoutActive(false);
+    const duration = formatTime(elapsedTime);
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#b8ff00', '#ffffff', '#000000']
+    });
+    showSuccess(`Treino finalizado em ${duration}! Você é fera! 🚀`);
+  };
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return [h, m, s].map(v => v.toString().padStart(2, '0')).filter((v, i) => v !== '00' || i > 0).join(':');
+  };
+
   const handleUpdateStats = async (id: string, completions: number, level: number) => {
     try {
       const { error } = await supabase.from('exercises').update({ completions, level }).eq('id', id);
       if (error) throw error;
+      
+      if (isWorkoutActive) {
+        setCompletedInSession(prev => [...prev, id]);
+        // Se todos os exercícios do treino atual foram feitos na sessão
+        const currentWorkoutList = workouts[activeTab] || [];
+        if (completedInSession.length + 1 === currentWorkoutList.length) {
+          handleFinishWorkout();
+        }
+      }
+
       setShowTimer(true);
       fetchExercises(user.id);
     } catch (err: any) {
@@ -112,6 +167,17 @@ const Index = () => {
       showError("Erro ao duplicar");
     }
   };
+
+  const calculateStats = () => {
+    const allExercises = Object.values(workouts).flat();
+    const totalCompletions = allExercises.reduce((acc, ex) => acc + (ex.completions || 0), 0);
+    const averageLevel = allExercises.length > 0 
+      ? allExercises.reduce((acc, ex) => acc + (ex.level || 1), 0) / allExercises.length 
+      : 1;
+    return { totalCompletions, averageLevel, workoutCount: allExercises.length };
+  };
+
+  const stats = calculateStats();
 
   const renderWorkoutContent = (type: string) => {
     const list = workouts[type] || [];
@@ -185,6 +251,9 @@ const Index = () => {
       <WorkoutHeader />
       
       <main className="max-w-4xl mx-auto px-6 -mt-16 relative z-20">
+        {/* Dashboard de Progresso */}
+        <ProgressStats {...stats} />
+
         <Tabs defaultValue="A" onValueChange={(v) => setActiveTab(v as WorkoutType)} className="w-full">
           <div className="sticky top-6 z-30 bg-slate-950/80 backdrop-blur-xl py-4 mb-8 rounded-[2rem] px-2">
             <TabsList className="grid w-full grid-cols-4 h-16 rounded-[1.5rem] p-2 bg-white/5 shadow-2xl border border-white/10">
@@ -199,7 +268,7 @@ const Index = () => {
           
           {(['A', 'B', 'C'] as const).map((type) => (
             <TabsContent key={type} value={type} className="space-y-8 outline-none">
-              <div className="flex justify-between items-end px-2">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end px-2 gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-primary">
                     <Sparkles size={18} className="fill-primary/20" />
@@ -207,7 +276,32 @@ const Index = () => {
                   </div>
                   <h2 className="text-3xl font-black text-white tracking-tighter">Exercícios do Dia</h2>
                 </div>
-                <Button onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} size="lg" className="rounded-full h-14 w-14 p-0 shadow-2xl shadow-primary/20 bg-primary text-slate-950 hover:bg-primary/90"><Plus size={24} /></Button>
+                
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  {!isWorkoutActive ? (
+                    <Button 
+                      onClick={handleStartWorkout}
+                      className="flex-1 md:flex-none h-14 rounded-2xl bg-primary text-slate-950 font-black uppercase tracking-widest px-8 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                    >
+                      <Play size={18} className="mr-2 fill-slate-950" /> Iniciar Treino
+                    </Button>
+                  ) : (
+                    <div className="flex-1 md:flex-none flex items-center gap-3 bg-white/5 p-1 rounded-2xl border border-white/10">
+                      <div className="px-4 py-2">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tempo de Treino</p>
+                        <p className="text-xl font-black tabular-nums text-primary">{formatTime(elapsedTime)}</p>
+                      </div>
+                      <Button 
+                        onClick={handleFinishWorkout}
+                        variant="destructive"
+                        className="h-12 rounded-xl font-black uppercase tracking-widest px-4"
+                      >
+                        <Square size={16} className="mr-2 fill-white" /> Parar
+                      </Button>
+                    </div>
+                  )}
+                  <Button onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} size="lg" className="rounded-2xl h-14 w-14 p-0 shadow-2xl shadow-white/5 bg-white/5 border border-white/10 text-white hover:bg-white/10"><Plus size={24} /></Button>
+                </div>
               </div>
               
               <div className="grid gap-8 sm:grid-cols-2">
