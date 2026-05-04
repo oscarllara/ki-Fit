@@ -297,7 +297,9 @@ const Index = () => {
                       </Button>
                     </div>
                   )}
-                  <Button onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} size="lg" className="rounded-xl md:rounded-2xl h-12 md:h-14 w-12 md:w-14 p-0 shadow-2xl shadow-white/5 bg-white/5 border border-white/10 text-white hover:bg-white/10"><Plus size={20} md:size={24} /></Button>
+                  <Button onClick={() => { setEditingExercise(null); setIsDialogOpen(true); }} size="lg" className="rounded-xl md:rounded-2xl h-12 md:h-14 w-12 md:w-14 p-0 shadow-2xl shadow-white/5 bg-white/5 border border-white/10 text-white hover:bg-white/10">
+                    <Plus className="w-5 h-5 md:w-6 md:h-6" />
+                  </Button>
                 </div>
               </div>
               
@@ -327,7 +329,7 @@ const Index = () => {
                     <div>
                       <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Status Atual</p>
                       <div className={`flex items-center gap-2 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs font-black uppercase ${user?.payment_status === 'Pago' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                        {user?.payment_status === 'Pago' ? <CheckCircle2 size={12} md:size={14} /> : <AlertCircle size={12} md:size={14} />}
+                        {user?.payment_status === 'Pago' ? <CheckCircle2 className="w-3 h-3 md:w-3.5 md:h-3.5" /> : <AlertCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />}
                         {user?.payment_status || 'Pendente'}
                       </div>
                     </div>
@@ -342,7 +344,7 @@ const Index = () => {
                   <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/10">
                     <div className="flex items-center gap-2 md:gap-3">
                       <div className="bg-white/5 p-2 md:p-3 rounded-xl md:rounded-2xl">
-                        <Calendar className="text-primary" size={18} md:size={20} />
+                        <Calendar className="text-primary w-[18px] h-[18px] md:w-[20px] md:h-[20px]" />
                       </div>
                       <div>
                         <p className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-400">Vencimento</p>
@@ -351,7 +353,7 @@ const Index = () => {
                     </div>
                     <div className="flex items-center gap-2 md:gap-3">
                       <div className="bg-white/5 p-2 md:p-3 rounded-xl md:rounded-2xl">
-                        <RefreshCw className="text-primary" size={18} md:size={20} />
+                        <RefreshCw className="text-primary w-[18px] h-[18px] md:w-[20px] md:h-[20px]" />
                       </div>
                       <div>
                         <p className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-400">Último Pagto</p>
@@ -366,16 +368,16 @@ const Index = () => {
                     onClick={() => setIsPaymentOpen(true)}
                     className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-black uppercase text-[10px] md:text-xs tracking-widest bg-primary text-slate-950 hover:bg-primary/90 shadow-lg shadow-primary/20 mt-4"
                   >
-                    Pagar Agora <ArrowRight className="ml-2" size={16} md:size={18} />
+                    Pagar Agora <ArrowRight className="ml-2 w-4 h-4 md:w-[18px] md:h-[18px]" />
                   </Button>
                 </div>
               </div>
 
               <div className="bg-primary/10 border border-primary/20 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] flex items-center gap-4">
                 <div className="bg-primary p-2 md:p-3 rounded-xl md:rounded-2xl shrink-0">
-                  <AlertCircle className="text-slate-950" size={20} md:size={24} />
+                  <AlertCircle className="text-slate-950 w-5 h-5 md:w-6 md:h-6" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-xs md:text-sm font-bold text-white">Dúvidas sobre pagamentos?</p>
                   <p className="text-[10px] md:text-xs text-slate-400">Fale diretamente com seu gestor no WhatsApp.</p>
                 </div>
