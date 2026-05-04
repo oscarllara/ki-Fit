@@ -16,9 +16,9 @@ const Logo = ({ className = "", size = 'md' }: LogoProps) => {
 
   return (
     <div className={`flex flex-col items-center justify-center select-none ${className}`}>
-      {/* Usando a imagem completa enviada pelo usuário */}
+      {/* Link atualizado para a logo correta enviada por você */}
       <img 
-        src="dyad-media://media/Ki-Fit/.dyad/media/0af084df44d6c71a355762981647c6ee.png" 
+        src="dyad-media://media/Ki-Fit/.dyad/media/601e85b9276818965136206b7c111b14.png" 
         alt="Ki Body Fit Logo" 
         className={`${widths[size]} h-auto object-contain drop-shadow-[0_0_20px_rgba(184,255,0,0.2)]`}
       />
